@@ -26,6 +26,13 @@ const uint16_t bcm_brightness_map [BCM_RESOLUTION] = {
     [7] = 1024
 };
 
+//Stores correction values to be subtracted from the counter values in the brightness map
+//They will be changed periodically if necessary
+//uint8 would probably be enough, u16 is used to prevent potential overflow
+uint16_t bcm_delay_correction_offset [BCM_RESOLUTION] = {
+    0, 0, 0, 0, 0, 0, 0, 0
+};
+
 //specify how many of the first bits in BCM are displayed
 //in a single call. This is important when using high clock frequencies
 //as the timer interrupt might fire at a much later point than the one
@@ -85,13 +92,16 @@ void loop()
     sprintf(output, "Brightness: %3i; Interrupts after 100ms: %6u;\n"
     "TCNT3: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
-    "bcm_f: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n", 
+    "bcm_f: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
+    "corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
     brightness, interrupt_counter, 
     //counts is shifted by one byte as it is written to after frame_index was already advanced
     counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0],
     bcm_brightness_map[0], bcm_brightness_map[1], bcm_brightness_map[2], bcm_brightness_map[3],
     bcm_brightness_map[4], bcm_brightness_map[5], bcm_brightness_map[6], bcm_brightness_map[7],
-    bcm_frames[0], bcm_frames[1], bcm_frames[2], bcm_frames[3], bcm_frames[4], bcm_frames[5], bcm_frames[6], bcm_frames[7]);
+    bcm_frames[0], bcm_frames[1], bcm_frames[2], bcm_frames[3], bcm_frames[4], bcm_frames[5], bcm_frames[6], bcm_frames[7],
+    bcm_delay_correction_offset[0], bcm_delay_correction_offset[1], bcm_delay_correction_offset[2], bcm_delay_correction_offset[3],
+    bcm_delay_correction_offset[4], bcm_delay_correction_offset[5], bcm_delay_correction_offset[6], bcm_delay_correction_offset[7]);
 
     SerialUSB.write(output);
 
@@ -125,10 +135,6 @@ ISR( TIMER3_COMPA_vect ){
     //Loop unrolling
     if(frame_index == 0){
         while(frame_index < bcm_loop_unroll_amount){
-            //This needs to stay to make sure the last bit takes
-            //exactly the same amount of time as the ones before it!
-            OCR3A = bcm_brightness_map[frame_index] + 100;
-
             //draw frame
             DDRC = bcm_frames[frame_index];
 
@@ -137,7 +143,10 @@ ISR( TIMER3_COMPA_vect ){
             TCNT3 = 0;
 
             //busy delay. the loop_2 function executes 4 cycles per iteration
-            _delay_loop_2((bcm_brightness_map[frame_index] - 4) * (prescaler_factor/4) - 6);
+            _delay_loop_2(
+                (bcm_brightness_map[frame_index]) * (prescaler_factor/4) 
+                - bcm_delay_correction_offset[frame_index]
+            );
 
             frame_index++;
         }
@@ -145,7 +154,7 @@ ISR( TIMER3_COMPA_vect ){
 
     //set delay for next bit (subtracting a correction amount to compensate
     //for "wasted" instructions inside this interrupt handler)
-    OCR3A = bcm_brightness_map[frame_index] - 11;
+    OCR3A = bcm_brightness_map[frame_index] - bcm_delay_correction_offset[frame_index];
 
     //draw frame
     DDRC = bcm_frames[frame_index];
@@ -153,4 +162,26 @@ ISR( TIMER3_COMPA_vect ){
     counts[frame_index] = TCNT3; //log time for previous frame index
     TCNT3 = 0; //reset timer. This needs to happen directly after time logging to guarantee accurate results
     SREG = old_sreg; //turn on interrupts again
+
+    //Adjust delay correction
+    if(frame_index + 1 == BCM_RESOLUTION){
+        for(uint8_t i = 0; i < BCM_RESOLUTION; i++){
+            //counts is shifted by one byte as it is written to after frame_index was already advanced
+            uint16_t measured_count = counts[(i+1) % BCM_RESOLUTION];
+            uint16_t target_count = bcm_brightness_map[i];
+
+            //Underflow doesn't need to be checked for, it can not occur
+            //We only increment/decrement as the delay correction is updated very frequently
+            //That way they also work for interrupt und loop unrolled bits
+
+            if(target_count > measured_count){
+                //correction is subtracted from timer/delay values,
+                //so if we measure too few counts, the correction is too high
+                --(bcm_delay_correction_offset[i]);
+            } else if (target_count < measured_count){
+                //if we measure to many counts, the correction is too low
+                ++(bcm_delay_correction_offset[i]);
+            }
+        }
+    }
 }
