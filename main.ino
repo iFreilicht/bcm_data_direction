@@ -16,14 +16,14 @@ volatile uint8_t bcm_frames [BCM_RESOLUTION] = {
 //this can be adjusted
 const uint16_t bcm_brightness_map [BCM_RESOLUTION] = {
   //bit | delay in clock-cycles
-    [0] = 2,
-    [1] = 4,
-    [2] = 8,
-    [3] = 16,
-    [4] = 32,
-    [5] = 64,
-    [6] = 128,
-    [7] = 256
+    [0] = 8,
+    [1] = 16,
+    [2] = 32,
+    [3] = 64,
+    [4] = 128,
+    [5] = 256,
+    [6] = 512,
+    [7] = 1024
 };
 
 //specify how many of the first bits in BCM are displayed
@@ -46,8 +46,8 @@ uint16_t last_interrupt = 0;
 
 
 //If one of these values is changed, the other NEEDS to be changed accordingly!
-const uint8_t prescaler_setting = 0b00000011;
-const uint16_t prescaler_factor = 64;
+const uint8_t prescaler_setting = 0b00000010;
+const uint16_t prescaler_factor = 8;
 
 void setup()
 {
@@ -125,8 +125,9 @@ ISR( TIMER3_COMPA_vect ){
     //Loop unrolling
     if(frame_index == 0){
         while(frame_index < bcm_loop_unroll_amount){
-            //debugging
-            ++interrupt_counter;
+            //This needs to stay to make sure the last bit takes
+            //exactly the same amount of time as the ones before it!
+            OCR3A = bcm_brightness_map[frame_index] + 100;
 
             //draw frame
             DDRC = bcm_frames[frame_index];
@@ -136,14 +137,15 @@ ISR( TIMER3_COMPA_vect ){
             TCNT3 = 0;
 
             //busy delay. the loop_2 function executes 4 cycles per iteration
-            _delay_loop_2((bcm_brightness_map[frame_index] - 1) * (prescaler_factor/4) - 2);
+            _delay_loop_2((bcm_brightness_map[frame_index] - 4) * (prescaler_factor/4) - 6);
 
             frame_index++;
         }
     }
 
-    //set delay for next bit (subtracting a correction amount to make )
-    OCR3A = bcm_brightness_map[frame_index] - 2;
+    //set delay for next bit (subtracting a correction amount to compensate
+    //for "wasted" instructions inside this interrupt handler)
+    OCR3A = bcm_brightness_map[frame_index] - 11;
 
     //draw frame
     DDRC = bcm_frames[frame_index];
