@@ -84,11 +84,13 @@ void loop()
 {
     sprintf(output, "Brightness: %3i; Interrupts after 100ms: %6u;\n"
     "TCNT3: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
-    "OCR3A: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
+    "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "bcm_f: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n", 
     brightness, interrupt_counter, 
-    counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7],
-    compares[0], compares[1], compares[2], compares[3], compares[4], compares[5], compares[6], compares[7],
+    //counts is shifted by one byte as it is written to after frame_index was already advanced
+    counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0],
+    bcm_brightness_map[0], bcm_brightness_map[1], bcm_brightness_map[2], bcm_brightness_map[3],
+    bcm_brightness_map[4], bcm_brightness_map[5], bcm_brightness_map[6], bcm_brightness_map[7],
     bcm_frames[0], bcm_frames[1], bcm_frames[2], bcm_frames[3], bcm_frames[4], bcm_frames[5], bcm_frames[6], bcm_frames[7]);
 
     SerialUSB.write(output);
@@ -111,26 +113,42 @@ void set_brightness(int value){
 }
 
 ISR( TIMER3_COMPA_vect ){
-    TCCR3B &= 0b11111000; //stop timer
     int old_sreg = SREG;
     cli(); //pause interrupts
 
     //debugging
     ++interrupt_counter;
-    counts[frame_index] = TCNT3;
-    compares[frame_index] = OCR3A;
 
     //advance frame index
     frame_index = (frame_index + 1) % BCM_RESOLUTION;
 
-    //set delay for next bit
-    OCR3A = bcm_brightness_map[frame_index] - 1;
+    //Loop unrolling
+    if(frame_index == 0){
+        while(frame_index < bcm_loop_unroll_amount){
+            //debugging
+            ++interrupt_counter;
+
+            //draw frame
+            DDRC = bcm_frames[frame_index];
+
+            //log time for previous frame index and reset timer
+            counts[frame_index] = TCNT3;
+            TCNT3 = 0;
+
+            //busy delay. the loop_2 function executes 4 cycles per iteration
+            _delay_loop_2((bcm_brightness_map[frame_index] - 1) * (prescaler_factor/4) - 2);
+
+            frame_index++;
+        }
+    }
+
+    //set delay for next bit (subtracting a correction amount to make )
+    OCR3A = bcm_brightness_map[frame_index] - 2;
 
     //draw frame
     DDRC = bcm_frames[frame_index];
 
-    //Reset timer again to ensure that no match has been skipped
-    TCNT3 = 0;
+    counts[frame_index] = TCNT3; //log time for previous frame index
+    TCNT3 = 0; //reset timer. This needs to happen directly after time logging to guarantee accurate results
     SREG = old_sreg; //turn on interrupts again
-    TCCR3B |= prescaler_setting; //start timer again
 }
