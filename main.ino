@@ -1,15 +1,29 @@
 #define BCM_RESOLUTION 8
+#define CHARLIE_PINS 3
 
-volatile uint8_t bcm_frames [BCM_RESOLUTION] = {
-    0x00, //bit0
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00
+//BCM Frames for one single frame of an animation
+//The first index is equivalent to the active source pin,
+//The second index to the active BCM bit.
+//Storing the values this way allows to just write one byte to 
+//the pin port each time a new bit starts in BCM
+volatile uint8_t bcm_frames [CHARLIE_PINS][BCM_RESOLUTION] = {
+    {
+        0x00, //bit0
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00
+    }
 };
+
+//Indices for accessing bcm_frames:
+//First index, maximum is 3 (TODO: Increase this to 7)
+volatile uint8_t frame_index = 0;
+//Second index, maximum is BCM_RESOLUTION-1
+volatile uint8_t bit_index = 0;
 
 //Mapping of bits to time the bit is taking up in the Bit Code Modulation schedule
 //Normally bcm_brightness_map[bit] == 1 << bit, but for gamma correction
@@ -42,8 +56,6 @@ uint16_t bcm_delay_correction_offset [BCM_RESOLUTION] = {
 //all measured delays (in clockcycles) per bit are equal to those
 //specified in bcm_brightness_map
 const uint8_t bcm_loop_unroll_amount = 3;
-
-volatile uint8_t frame_index = 0;
 
 //Storage for output over serial connection
 uint16_t counts[BCM_RESOLUTION];
@@ -83,23 +95,24 @@ void setup()
 uint16_t brightness = 0;
 
 uint16_t interrupt_counter = 0;
+uint16_t frame_counter = 0;
 
 //Output buffer
 char output[1000];
 
 void loop()
 {
-    sprintf(output, "Brightness: %3i; Interrupts after 100ms: %6u;\n"
+    sprintf(output, "Brightness: %3i; Interrupts after 100ms: %6u; FPS: %4u\n"
     "TCNT3: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "bcm_f: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
-    brightness, interrupt_counter, 
-    //counts is shifted by one byte as it is written to after frame_index was already advanced
+    brightness, interrupt_counter, frame_counter*10/CHARLIE_PINS,
+    //counts is shifted by one byte as it is written to after bit_index was already advanced
     counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0],
     bcm_brightness_map[0], bcm_brightness_map[1], bcm_brightness_map[2], bcm_brightness_map[3],
     bcm_brightness_map[4], bcm_brightness_map[5], bcm_brightness_map[6], bcm_brightness_map[7],
-    bcm_frames[0], bcm_frames[1], bcm_frames[2], bcm_frames[3], bcm_frames[4], bcm_frames[5], bcm_frames[6], bcm_frames[7],
+    bcm_frames[0][0], bcm_frames[0][1], bcm_frames[0][2], bcm_frames[0][3], bcm_frames[0][4], bcm_frames[0][5], bcm_frames[0][6], bcm_frames[0][7],
     bcm_delay_correction_offset[0], bcm_delay_correction_offset[1], bcm_delay_correction_offset[2], bcm_delay_correction_offset[3],
     bcm_delay_correction_offset[4], bcm_delay_correction_offset[5], bcm_delay_correction_offset[6], bcm_delay_correction_offset[7]);
 
@@ -107,8 +120,9 @@ void loop()
 
     set_brightness(brightness+1);
     interrupt_counter = 0;
+    frame_counter = 0;
 
-    delay(1000);
+    delay(100);
 }
 
 void set_brightness(int value){
@@ -116,10 +130,28 @@ void set_brightness(int value){
     if (brightness >= 0xFFFF >> (16 - BCM_RESOLUTION)) brightness = 0;
 
     for(int i = 0; i < BCM_RESOLUTION; i++){
-        bcm_frames[i] = bitRead(brightness, i) == LOW ? 0x00: 0xFF;
+        if(bitRead(brightness, i) == HIGH){
+            bcm_frames[0][i] = 0b01000000;
+            bcm_frames[1][i] = 0b01000000;
+            bcm_frames[2][i] = 0b00100000;
+        } else {
+            bcm_frames[0][i] = 0x00;
+            bcm_frames[1][i] = 0x00;
+            bcm_frames[2][i] = 0x00;
+        }
     }
+}
 
-    //frame_index = 0;
+//this mask is applied before setting the data direction to prevent switching the source pin to input
+uint8_t source_mask = 0x00;
+
+//Set pin that'll source current for the charlieplex display. Maximum value is 7
+void set_source_pin(int value){
+    source_mask = 1 << value;
+    PORTB = 0x00;
+    DDRB = 0x00;
+    DDRB = source_mask;
+    PORTB = source_mask;
 }
 
 ISR( TIMER3_COMPA_vect ){
@@ -130,43 +162,47 @@ ISR( TIMER3_COMPA_vect ){
     ++interrupt_counter;
 
     //advance frame index
-    frame_index = (frame_index + 1) % BCM_RESOLUTION;
+    bit_index = (bit_index + 1) % BCM_RESOLUTION;
 
     //Loop unrolling
-    if(frame_index == 0){
-        while(frame_index < bcm_loop_unroll_amount){
+    if(bit_index == 0){
+        ++frame_counter;
+        frame_index = (frame_index + 1) % CHARLIE_PINS;
+        set_source_pin(frame_index + 4);
+
+        while(bit_index < bcm_loop_unroll_amount){
             //draw frame
-            DDRB = bcm_frames[frame_index];
+            DDRB = source_mask | bcm_frames[frame_index][bit_index];
 
             //log time for previous frame index and reset timer
-            counts[frame_index] = TCNT3;
+            counts[bit_index] = TCNT3;
             TCNT3 = 0;
 
             //busy delay. the loop_2 function executes 4 cycles per iteration
             _delay_loop_2(
-                (bcm_brightness_map[frame_index]) * (prescaler_factor/4) 
-                - bcm_delay_correction_offset[frame_index]
+                (bcm_brightness_map[bit_index]) * (prescaler_factor/4) 
+                - bcm_delay_correction_offset[bit_index]
             );
 
-            frame_index++;
+            bit_index++;
         }
     }
 
     //set delay for next bit (subtracting a correction amount to compensate
     //for "wasted" instructions inside this interrupt handler)
-    OCR3A = bcm_brightness_map[frame_index] - bcm_delay_correction_offset[frame_index];
+    OCR3A = bcm_brightness_map[bit_index] - bcm_delay_correction_offset[bit_index];
 
     //draw frame
-    DDRB = bcm_frames[frame_index];
+    DDRB = source_mask | bcm_frames[frame_index][bit_index];
 
-    counts[frame_index] = TCNT3; //log time for previous frame index
+    counts[bit_index] = TCNT3; //log time for previous frame index
     TCNT3 = 0; //reset timer. This needs to happen directly after time logging to guarantee accurate results
     SREG = old_sreg; //turn on interrupts again
 
     //Adjust delay correction
-    if(frame_index + 1 == BCM_RESOLUTION){
+    if(bit_index + 1 == BCM_RESOLUTION){
         for(uint8_t i = 0; i < BCM_RESOLUTION; i++){
-            //counts is shifted by one byte as it is written to after frame_index was already advanced
+            //counts is shifted by one byte as it is written to after bit_index was already advanced
             uint16_t measured_count = counts[(i+1) % BCM_RESOLUTION];
             uint16_t target_count = bcm_brightness_map[i];
 
