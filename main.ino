@@ -60,8 +60,8 @@ void setup()
 {
     SerialUSB.begin(9600);
 
-    PORTC = 0x00; //Pullups disabled and output at LOW
-    DDRC = 0x00; //Everything set as input initially
+    PORTB = 0x00; //Pullups disabled and output at LOW
+    DDRB = 0x00; //Everything set as input initially
 
     //Clear all Timer configuration flags, in case Arduino set them
     //This stops the timer, disconnects all output pins and sets mode to Normal
@@ -136,7 +136,7 @@ ISR( TIMER3_COMPA_vect ){
     if(frame_index == 0){
         while(frame_index < bcm_loop_unroll_amount){
             //draw frame
-            DDRC = bcm_frames[frame_index];
+            DDRB = bcm_frames[frame_index];
 
             //log time for previous frame index and reset timer
             counts[frame_index] = TCNT3;
@@ -157,7 +157,7 @@ ISR( TIMER3_COMPA_vect ){
     OCR3A = bcm_brightness_map[frame_index] - bcm_delay_correction_offset[frame_index];
 
     //draw frame
-    DDRC = bcm_frames[frame_index];
+    DDRB = bcm_frames[frame_index];
 
     counts[frame_index] = TCNT3; //log time for previous frame index
     TCNT3 = 0; //reset timer. This needs to happen directly after time logging to guarantee accurate results
