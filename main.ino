@@ -102,6 +102,7 @@ char output[1000];
 
 void loop()
 {
+    //Debugging output
     sprintf(output, "Brightness: %3i; Interrupts after 100ms: %6u; FPS: %4u\n"
     "TCNT3: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
@@ -118,13 +119,17 @@ void loop()
 
     SerialUSB.write(output);
 
-    set_brightness(brightness+1);
+    //Advance animation
+    set_brightness(brightness + 1);
+
+    //Reset counters 
     interrupt_counter = 0;
     frame_counter = 0;
 
     delay(100);
 }
 
+//Set the brightness of three of the six connected LEDs
 void set_brightness(int value){
     brightness = value;
     if (brightness >= 0xFFFF >> (16 - BCM_RESOLUTION)) brightness = 0;
@@ -154,6 +159,7 @@ void set_source_pin(int value){
     PORTB = source_mask;
 }
 
+//Main interrupt for executing Bit Code Modulation
 ISR( TIMER3_COMPA_vect ){
     int old_sreg = SREG;
     cli(); //pause interrupts
