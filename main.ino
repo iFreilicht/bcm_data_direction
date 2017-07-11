@@ -7,16 +7,9 @@
 //Storing the values this way allows to just write one byte to 
 //the pin port each time a new bit starts in BCM
 volatile uint8_t bcm_frames [CHARLIE_PINS][BCM_RESOLUTION] = {
-    {
-        0x00, //bit0
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00
-    }
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 };
 
 //Indices for accessing bcm_frames:
@@ -57,16 +50,18 @@ uint16_t bcm_delay_correction_offset [BCM_RESOLUTION] = {
 //specified in bcm_brightness_map
 const uint8_t bcm_loop_unroll_amount = 3;
 
-//Storage for output over serial connection
-uint16_t counts[BCM_RESOLUTION];
-uint16_t compares[BCM_RESOLUTION];
-
-uint16_t last_interrupt = 0;
-
-
 //If one of these values is changed, the other NEEDS to be changed accordingly!
 const uint8_t prescaler_setting = 0b00000010;
 const uint16_t prescaler_factor = 8;
+
+//Storage for output over serial connection
+uint16_t counts[BCM_RESOLUTION];
+uint16_t compares[BCM_RESOLUTION];
+uint16_t interrupt_counter = 0;
+uint16_t frame_counter = 0;
+
+//Output buffer
+char output[1000];
 
 void setup()
 {
@@ -88,17 +83,31 @@ void setup()
     //Initial delay
     OCR3A = 1;
 
-    // Enable Output Compare A Match Interrupt
+    //Enable Output Compare A Match Interrupt
     bitSet(TIMSK3, OCIE3A);
 }
 
+//Brightness for demo animation
 uint16_t brightness = 0;
 
-uint16_t interrupt_counter = 0;
-uint16_t frame_counter = 0;
+//Set the brightness of three of the six connected LEDs 
+//while leaving the other three off
+void set_brightness(int value){
+    brightness = value;
+    if (brightness >= 0xFFFF >> (16 - BCM_RESOLUTION)) brightness = 0;
 
-//Output buffer
-char output[1000];
+    for(int i = 0; i < BCM_RESOLUTION; i++){
+        if(bitRead(brightness, i) == HIGH){
+            bcm_frames[0][i] = 0b01000000;
+            bcm_frames[1][i] = 0b01000000;
+            bcm_frames[2][i] = 0b00100000;
+        } else {
+            bcm_frames[0][i] = 0x00;
+            bcm_frames[1][i] = 0x00;
+            bcm_frames[2][i] = 0x00;
+        }
+    }
+}
 
 void loop()
 {
@@ -127,24 +136,6 @@ void loop()
     frame_counter = 0;
 
     delay(100);
-}
-
-//Set the brightness of three of the six connected LEDs
-void set_brightness(int value){
-    brightness = value;
-    if (brightness >= 0xFFFF >> (16 - BCM_RESOLUTION)) brightness = 0;
-
-    for(int i = 0; i < BCM_RESOLUTION; i++){
-        if(bitRead(brightness, i) == HIGH){
-            bcm_frames[0][i] = 0b01000000;
-            bcm_frames[1][i] = 0b01000000;
-            bcm_frames[2][i] = 0b00100000;
-        } else {
-            bcm_frames[0][i] = 0x00;
-            bcm_frames[1][i] = 0x00;
-            bcm_frames[2][i] = 0x00;
-        }
-    }
 }
 
 //this mask is applied before setting the data direction to prevent switching the source pin to input
