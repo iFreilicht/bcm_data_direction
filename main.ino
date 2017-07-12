@@ -151,15 +151,18 @@ void turn_on_all_leds(uint8_t pin){
     PORTB = ~(1 << pin);
 }
 
+//Delay in ms after which to repeat the main loop
+const uint16_t loop_delay = 30;
+
 void loop()
 {
     //Debugging output
-    sprintf(output, "Brightness: %3i; Interrupts after 100ms: %6u; FPS: %4u\n"
+    sprintf(output, "Brightness: %3i; Interrupts after %ums: %6u; FPS: %4u\n"
     "TCNT3: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "bcm_f: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
-    brightness, interrupt_counter, frame_counter*10/CHARLIE_PINS,
+    brightness, loop_delay, interrupt_counter, frame_counter*1000/loop_delay/CHARLIE_PINS,
     //counts is shifted by one byte as it is written to after bit_index was already advanced
     counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0],
     bcm_brightness_map[0], bcm_brightness_map[1], bcm_brightness_map[2], bcm_brightness_map[3],
@@ -177,7 +180,7 @@ void loop()
     interrupt_counter = 0;
     frame_counter = 0;
 
-    delay(30);
+    delay(loop_delay);
 }
 
 //these masks are applied before setting the data direction and port registers to prevent switching the sink pin
