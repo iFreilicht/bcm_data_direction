@@ -65,6 +65,15 @@ char output[1000];
 
 void setup()
 {
+    //Disconnect unused pins
+    pinMode(12, INPUT);
+    pinMode(7, INPUT);
+    pinMode(6, INPUT);
+    pinMode(5, INPUT);
+    pinMode(4, INPUT);
+    pinMode(3, INPUT);
+    pinMode(2, INPUT);
+
     SerialUSB.begin(9600);
 
     PORTB = 0x00; //Pullups disabled and output at LOW
@@ -89,18 +98,29 @@ void setup()
 
 //Brightness for demo animation
 uint16_t brightness = 0;
+uint8_t active_led_set = 0; //TODO: REMOVE THIS! Only for 3pin testing
 
 //Set the brightness of three of the six connected LEDs 
 //while leaving the other three off
 void set_brightness(int value){
     brightness = value;
-    if (brightness >= 0xFFFF >> (16 - BCM_RESOLUTION)) brightness = 0;
+    if (brightness >= 0xFFFF >> (16 - BCM_RESOLUTION)){
+        brightness = 0;
+        active_led_set = !active_led_set;
+    } 
 
     for(int i = 0; i < BCM_RESOLUTION; i++){
         if(bitRead(brightness, i) == HIGH){
-            bcm_frames[0][i] = 0b01000000;
-            bcm_frames[1][i] = 0b01000000;
-            bcm_frames[2][i] = 0b00100000;
+            if(active_led_set == 0){
+                bcm_frames[0][i] = 0b01000000;
+                bcm_frames[1][i] = 0b00010000;
+                bcm_frames[2][i] = 0b00100000;
+            } else {
+                //TODO: REMOVE THIS IF/ELSE CLAUSE! Only for 3pin testing!
+                bcm_frames[0][i] = 0b00100000;
+                bcm_frames[1][i] = 0b01000000;
+                bcm_frames[2][i] = 0b00010000;
+            }
         } else {
             bcm_frames[0][i] = 0x00;
             bcm_frames[1][i] = 0x00;
@@ -135,7 +155,7 @@ void loop()
     interrupt_counter = 0;
     frame_counter = 0;
 
-    delay(100);
+    delay(30);
 }
 
 //this mask is applied before setting the data direction to prevent switching the source pin to input
