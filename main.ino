@@ -1,5 +1,5 @@
 #define BCM_RESOLUTION 8
-#define CHARLIE_PINS 3
+#define CHARLIE_PINS 7
 
 //BCM Frames for one single frame of an animation
 //The first index is equivalent to the active source pin,
@@ -86,6 +86,18 @@ void setup()
     TCCR3C &= 0x00;
     TIMSK3 &= 0x00;
 
+    //Self-test, light all LEDs
+    #if 0
+    delay(1000);
+    turn_on_all_leds(0); delay(1000); //5 LEDs on
+    turn_on_all_leds(1); delay(1000); //5 LEDs on
+    turn_on_all_leds(2); delay(1000); //5 LEDs on
+    turn_on_all_leds(3); delay(1000); //5 LEDs on
+    turn_on_all_leds(4); delay(1000); //5 LEDs on
+    turn_on_all_leds(5); delay(1000); //5 LEDs on
+    turn_on_all_leds(6); delay(1000); //6 LEDs on
+    #endif
+
     //Start timer and set prescaler
     TCCR3B |= prescaler_setting; //Set precaler to 1/64
 
@@ -111,22 +123,32 @@ void set_brightness(int value){
 
     for(int i = 0; i < BCM_RESOLUTION; i++){
         if(bitRead(brightness, i) == HIGH){
-            if(active_led_set == 0){
-                bcm_frames[0][i] = 0b01000000;
-                bcm_frames[1][i] = 0b00010000;
-                bcm_frames[2][i] = 0b00100000;
-            } else {
-                //TODO: REMOVE THIS IF/ELSE CLAUSE! Only for 3pin testing!
-                bcm_frames[0][i] = 0b00100000;
-                bcm_frames[1][i] = 0b01000000;
-                bcm_frames[2][i] = 0b00010000;
-            }
+            bcm_frames[0][i] = 0xff;
+            bcm_frames[1][i] = 0xff;
+            bcm_frames[2][i] = 0xff;
+            bcm_frames[3][i] = 0xff;
+            bcm_frames[4][i] = 0xff;
+            bcm_frames[5][i] = 0xff;
+            bcm_frames[6][i] = 0xff;
         } else {
             bcm_frames[0][i] = 0x00;
             bcm_frames[1][i] = 0x00;
             bcm_frames[2][i] = 0x00;
+            bcm_frames[3][i] = 0x00;
+            bcm_frames[4][i] = 0x00;
+            bcm_frames[5][i] = 0x00;
+            bcm_frames[6][i] = 0x00;
         }
     }
+}
+
+//turn on all leds that have the specified pin wired as their sink pin
+//only in effect until next timer interrupt!
+void turn_on_all_leds(uint8_t pin){
+    //set all pins as output
+    DDRB = 0xff;
+    //set sink pin to low, all others to high
+    PORTB = ~(1 << pin);
 }
 
 void loop()
@@ -158,16 +180,21 @@ void loop()
     delay(30);
 }
 
-//this mask is applied before setting the data direction to prevent switching the source pin to input
-uint8_t source_mask = 0x00;
+//these masks are applied before setting the data direction and port registers to prevent switching the sink pin
+uint8_t sink_mask_ddr = 0x00;
+uint8_t sink_mask_port = 0x00;
 
-//Set pin that'll source current for the charlieplex display. Maximum value is 7
-void set_source_pin(int value){
-    source_mask = 1 << value;
-    PORTB = 0x00;
-    DDRB = 0x00;
-    DDRB = source_mask;
-    PORTB = source_mask;
+//Set pin that'll sink current for the charlieplex display. Maximum value is 7
+void set_sink_pin(int value){
+    //sink pin needs to be the only output pin, all others should be input
+    sink_mask_ddr = 1 << value;
+    //sink pin needs to be the only pin at LOW level, all others should be HIGH/input
+    sink_mask_port = ~sink_mask_ddr;
+
+    //set sink pin as output, all others as input
+    DDRB = sink_mask_ddr;
+    //set all pins to LOW/pullup deactivated
+    PORTB = 0;
 }
 
 //Main interrupt for executing Bit Code Modulation
@@ -185,11 +212,12 @@ ISR( TIMER3_COMPA_vect ){
     if(bit_index == 0){
         ++frame_counter;
         frame_index = (frame_index + 1) % CHARLIE_PINS;
-        set_source_pin(frame_index + 4);
+        set_sink_pin(frame_index);
 
         while(bit_index < bcm_loop_unroll_amount){
             //draw frame
-            DDRB = source_mask | bcm_frames[frame_index][bit_index];
+            PORTB = sink_mask_port & bcm_frames[frame_index][bit_index];
+            DDRB = sink_mask_ddr | bcm_frames[frame_index][bit_index];
 
             //log time for previous frame index and reset timer
             counts[bit_index] = TCNT3;
@@ -197,8 +225,8 @@ ISR( TIMER3_COMPA_vect ){
 
             //busy delay. the loop_2 function executes 4 cycles per iteration
             _delay_loop_2(
-                (bcm_brightness_map[bit_index]) * (prescaler_factor/4) 
-                - bcm_delay_correction_offset[bit_index]
+                (bcm_brightness_map[bit_index] - bcm_delay_correction_offset[bit_index]) 
+                * (prescaler_factor/4)
             );
 
             bit_index++;
@@ -210,7 +238,8 @@ ISR( TIMER3_COMPA_vect ){
     OCR3A = bcm_brightness_map[bit_index] - bcm_delay_correction_offset[bit_index];
 
     //draw frame
-    DDRB = source_mask | bcm_frames[frame_index][bit_index];
+    PORTB = sink_mask_port & bcm_frames[frame_index][bit_index];
+    DDRB = sink_mask_ddr | bcm_frames[frame_index][bit_index];
 
     counts[bit_index] = TCNT3; //log time for previous frame index
     TCNT3 = 0; //reset timer. This needs to happen directly after time logging to guarantee accurate results
@@ -233,7 +262,8 @@ ISR( TIMER3_COMPA_vect ){
                 --(bcm_delay_correction_offset[i]);
             } else if (target_count < measured_count){
                 //if we measure to many counts, the correction is too low
-                ++(bcm_delay_correction_offset[i]);
+                if(bcm_delay_correction_offset[i] + 1 < bcm_brightness_map[i])
+                    ++(bcm_delay_correction_offset[i]);
             }
         }
     }
