@@ -100,7 +100,7 @@ namespace led_ring{
             Blue,
             Max = Blue
         };
-        
+
         //Allowed thrid index values for COLOR_CHANNEL_FRAME_MAP
         enum PinIndex{
             Sink,
@@ -108,7 +108,7 @@ namespace led_ring{
         };
 
         //For each channel and colour, store the sink and source pin
-        const uint8_t COLOR_CHANNEL_FRAME_MAP [NUM_CHANNELS][3][2] = {
+        const PROGMEM uint8_t COLOR_CHANNEL_FRAME_MAP [NUM_CHANNELS][3][2] = {
             [0] = { 
                 [Red]   = { [Sink]=0, [Source]=1 },
                 [Green] = { [Sink]=1, [Source]=0 },
@@ -172,11 +172,11 @@ namespace led_ring{
         };
 
         inline uint8_t get_sink_pin(uint8_t channel, ColorIndex color_index){
-            return COLOR_CHANNEL_FRAME_MAP[channel][color_index][Sink];
+            return pgm_read_byte( &( COLOR_CHANNEL_FRAME_MAP[channel][color_index][Sink] ) );
         }
 
         inline uint8_t get_source_pin(uint8_t channel, ColorIndex color_index){
-            return COLOR_CHANNEL_FRAME_MAP[channel][color_index][Source];
+            return pgm_read_byte( &( COLOR_CHANNEL_FRAME_MAP[channel][color_index][Source] ) );
         }
     }
 
