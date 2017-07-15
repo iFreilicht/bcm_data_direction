@@ -52,9 +52,6 @@ namespace led_ring{
         }
     }
 
-    //Brightness for demo animation
-    uint16_t brightness = 0;
-
     //BCM Frames for one single frame of an animation
     //The first index is equivalent to the active source pin,
     //The second index to the active BCM bit.
@@ -205,35 +202,6 @@ namespace led_ring{
     //all measured delays (in clockcycles) per bit are equal to those
     //specified in BCM_BRIGHTNESS_MAP
     const uint8_t BCM_LOOP_UNROLL_AMOUNT = 3;
-
-    //Set the brightness of three of the six connected LEDs 
-    //while leaving the other three off
-    void set_brightness(int value){
-        brightness = value;
-        if (brightness >= 0xFFFF >> (16 - BCM_RESOLUTION)){
-            brightness = 0;
-        } 
-
-        for(int i = 0; i < BCM_RESOLUTION; i++){
-            if(bitRead(brightness, i) == HIGH){
-                bcm_frames[0][i] = 0xff;
-                bcm_frames[1][i] = 0xff;
-                bcm_frames[2][i] = 0xff;
-                bcm_frames[3][i] = 0xff;
-                bcm_frames[4][i] = 0xff;
-                bcm_frames[5][i] = 0xff;
-                bcm_frames[6][i] = 0xff;
-            } else {
-                bcm_frames[0][i] = 0x00;
-                bcm_frames[1][i] = 0x00;
-                bcm_frames[2][i] = 0x00;
-                bcm_frames[3][i] = 0x00;
-                bcm_frames[4][i] = 0x00;
-                bcm_frames[5][i] = 0x00;
-                bcm_frames[6][i] = 0x00;
-            }
-        }
-    }
 
     //Output buffer for string formatting
     char output_buffer[100];
