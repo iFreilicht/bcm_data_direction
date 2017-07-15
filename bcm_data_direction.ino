@@ -22,7 +22,7 @@ void loop()
     "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "bcm_f: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
-    brightness, loop_delay, interrupt_counter, frame_counter*1000/loop_delay/CHARLIE_PINS,
+    brightness, loop_delay, interrupt_counter, (uint16_t)(((uint32_t)frame_counter)*1000/loop_delay/CHARLIE_PINS),
     //counts is shifted by one byte as it is written to after bit_index was already advanced
     counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0],
     bcm_brightness_map[0], bcm_brightness_map[1], bcm_brightness_map[2], bcm_brightness_map[3],
@@ -40,13 +40,13 @@ void loop()
     for(int i = 0; i < 12; i++){
         switch(brightness){
             case 0:
-                draw_led(i, {255, 0, 0});
+                draw_led(i, {50, 0, 0});
                 break;
             case 1:
-                draw_led(i, {0, 255, 0});
+                draw_led(i, {0, 50, 0});
                 break;
             case 2:
-                draw_led(i, {0, 0, 255});
+                draw_led(i, {0, 0, 50});
         }
     }
 
