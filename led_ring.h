@@ -91,84 +91,94 @@ namespace led_ring{
         uint8_t B;
     };
 
-    //Allowed second index values for COLOR_CHANNEL_FRAME_MAP
-    enum ColorIndex{
-        Min,
-        Red = Min,
-        Green,
-        Blue,
-        Max = Blue
-    };
+    namespace {
+        //Allowed second index values for COLOR_CHANNEL_FRAME_MAP
+        enum ColorIndex{
+            Min,
+            Red = Min,
+            Green,
+            Blue,
+            Max = Blue
+        };
+        
+        //Allowed thrid index values for COLOR_CHANNEL_FRAME_MAP
+        enum PinIndex{
+            Sink,
+            Source
+        };
 
-    //Allowed thrid index values for COLOR_CHANNEL_FRAME_MAP
-    enum PinIndex{
-        Sink,
-        Source
-    };
+        //For each channel and colour, store the sink and source pin
+        const uint8_t COLOR_CHANNEL_FRAME_MAP [NUM_CHANNELS][3][2] = {
+            [0] = { 
+                [Red]   = { [Sink]=0, [Source]=1 },
+                [Green] = { [Sink]=1, [Source]=0 },
+                [Blue]  = { [Sink]=5, [Source]=2 },
+            },
+            [1] = { 
+                [Red]   = { [Sink]=6, [Source]=1 },
+                [Green] = { [Sink]=2, [Source]=0 },
+                [Blue]  = { [Sink]=0, [Source]=2 },
+            },
+            [2] = { 
+                [Red]   = { [Sink]=2, [Source]=1 },
+                [Green] = { [Sink]=3, [Source]=0 },
+                [Blue]  = { [Sink]=1, [Source]=2 },
+            },
+            [3] = { 
+                [Red]   = { [Sink]=3, [Source]=1 },
+                [Green] = { [Sink]=4, [Source]=0 },
+                [Blue]  = { [Sink]=6, [Source]=2 },
+            },
+            [4] = { 
+                [Red]   = { [Sink]=4, [Source]=1 },
+                [Green] = { [Sink]=5, [Source]=0 },
+                [Blue]  = { [Sink]=3, [Source]=2 },
+            },
+            [5] = { 
+                [Red]   = { [Sink]=5, [Source]=1 },
+                [Green] = { [Sink]=6, [Source]=0 },
+                [Blue]  = { [Sink]=4, [Source]=2 },
+            },
+            [6] = { 
+                [Red]   = { [Sink]=3, [Source]=4 },
+                [Green] = { [Sink]=4, [Source]=3 },
+                [Blue]  = { [Sink]=2, [Source]=5 },
+            },
+            [7] = { 
+                [Red]   = { [Sink]=6, [Source]=4 },
+                [Green] = { [Sink]=5, [Source]=3 },
+                [Blue]  = { [Sink]=3, [Source]=5 },
+            },
+            [8] = { 
+                [Red]   = { [Sink]=5, [Source]=4 },
+                [Green] = { [Sink]=0, [Source]=3 },
+                [Blue]  = { [Sink]=4, [Source]=5 },
+            },
+            [9] = { 
+                [Red]   = { [Sink]=0, [Source]=4 },
+                [Green] = { [Sink]=1, [Source]=3 },
+                [Blue]  = { [Sink]=6, [Source]=5 },
+            },
+            [10] = { 
+                [Red]   = { [Sink]=1, [Source]=4 },
+                [Green] = { [Sink]=2, [Source]=3 },
+                [Blue]  = { [Sink]=0, [Source]=5 },
+            },
+            [11] = { 
+                [Red]   = { [Sink]=2, [Source]=4 },
+                [Green] = { [Sink]=6, [Source]=3 },
+                [Blue]  = { [Sink]=1, [Source]=5 },
+            }
+        };
 
-    //For each channel and colour, store the sink and source pin
-    const uint8_t COLOR_CHANNEL_FRAME_MAP [NUM_CHANNELS][3][2] = {
-        [0] = { 
-            [Red]   = { [Sink]=0, [Source]=1 },
-            [Green] = { [Sink]=1, [Source]=0 },
-            [Blue]  = { [Sink]=5, [Source]=2 },
-        },
-        [1] = { 
-            [Red]   = { [Sink]=6, [Source]=1 },
-            [Green] = { [Sink]=2, [Source]=0 },
-            [Blue]  = { [Sink]=0, [Source]=2 },
-        },
-        [2] = { 
-            [Red]   = { [Sink]=2, [Source]=1 },
-            [Green] = { [Sink]=3, [Source]=0 },
-            [Blue]  = { [Sink]=1, [Source]=2 },
-        },
-        [3] = { 
-            [Red]   = { [Sink]=3, [Source]=1 },
-            [Green] = { [Sink]=4, [Source]=0 },
-            [Blue]  = { [Sink]=6, [Source]=2 },
-        },
-        [4] = { 
-            [Red]   = { [Sink]=4, [Source]=1 },
-            [Green] = { [Sink]=5, [Source]=0 },
-            [Blue]  = { [Sink]=3, [Source]=2 },
-        },
-        [5] = { 
-            [Red]   = { [Sink]=5, [Source]=1 },
-            [Green] = { [Sink]=6, [Source]=0 },
-            [Blue]  = { [Sink]=4, [Source]=2 },
-        },
-        [6] = { 
-            [Red]   = { [Sink]=3, [Source]=4 },
-            [Green] = { [Sink]=4, [Source]=3 },
-            [Blue]  = { [Sink]=2, [Source]=5 },
-        },
-        [7] = { 
-            [Red]   = { [Sink]=6, [Source]=4 },
-            [Green] = { [Sink]=5, [Source]=3 },
-            [Blue]  = { [Sink]=3, [Source]=5 },
-        },
-        [8] = { 
-            [Red]   = { [Sink]=5, [Source]=4 },
-            [Green] = { [Sink]=0, [Source]=3 },
-            [Blue]  = { [Sink]=4, [Source]=5 },
-        },
-        [9] = { 
-            [Red]   = { [Sink]=0, [Source]=4 },
-            [Green] = { [Sink]=1, [Source]=3 },
-            [Blue]  = { [Sink]=6, [Source]=5 },
-        },
-        [10] = { 
-            [Red]   = { [Sink]=1, [Source]=4 },
-            [Green] = { [Sink]=2, [Source]=3 },
-            [Blue]  = { [Sink]=0, [Source]=5 },
-        },
-        [11] = { 
-            [Red]   = { [Sink]=2, [Source]=4 },
-            [Green] = { [Sink]=6, [Source]=3 },
-            [Blue]  = { [Sink]=1, [Source]=5 },
+        inline uint8_t get_sink_pin(uint8_t channel, ColorIndex color_index){
+            return COLOR_CHANNEL_FRAME_MAP[channel][color_index][Sink];
         }
-    };
+
+        inline uint8_t get_source_pin(uint8_t channel, ColorIndex color_index){
+            return COLOR_CHANNEL_FRAME_MAP[channel][color_index][Source];
+        }
+    }
 
     //Draw colour to a single RGB LED
     void draw_led(uint8_t channel, Color color){
@@ -176,8 +186,8 @@ namespace led_ring{
         uint8_t color_components[3] = { [Red]=color.R, [Green]=color.G, [Blue]=color.B };
 
         for (uint8_t color_i = ColorIndex::Min; color_i <= ColorIndex::Max; color_i++){
-            uint8_t sink_pin = COLOR_CHANNEL_FRAME_MAP[channel][color_i][Sink];
-            uint8_t source_pin = COLOR_CHANNEL_FRAME_MAP[channel][color_i][Source];
+            uint8_t sink_pin = get_sink_pin(channel, (ColorIndex)color_i);
+            uint8_t source_pin = get_source_pin(channel, (ColorIndex)color_i);
 
             //Write data to bcm_frames
             for(uint8_t bit = 0; bit < BCM_RESOLUTION; bit++){
