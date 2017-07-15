@@ -1,5 +1,6 @@
 #define BCM_RESOLUTION 8
 #define CHARLIE_PINS 7
+#define NUM_CHANNELS 12
 
 //BCM Frames for one single frame of an animation
 //The first index is equivalent to the active source pin,
@@ -32,6 +33,108 @@ const uint16_t bcm_brightness_map [BCM_RESOLUTION] = {
     [6] = 512,
     [7] = 1024
 };
+
+//Struct for storing colors as simple RGB values
+struct Color{
+    uint8_t R;
+    uint8_t G;
+    uint8_t B;
+};
+
+//Allowed second index values for color_channel_frame_map
+enum ColorIndex{
+    Min,
+    Red = Min,
+    Green,
+    Blue,
+    Max = Blue
+};
+
+//Allowed thrid index values for color_channel_frame_map
+enum PinIndex{
+    Sink,
+    Source
+};
+
+//For each channel and colour, store the sink and source pin
+const uint8_t color_channel_frame_map [NUM_CHANNELS][3][2] = {
+    [0] = { 
+        [Red]   = { [Sink]=0, [Source]=1 },
+        [Green] = { [Sink]=1, [Source]=0 },
+        [Blue]  = { [Sink]=5, [Source]=2 },
+    },
+    [1] = { 
+        [Red]   = { [Sink]=6, [Source]=1 },
+        [Green] = { [Sink]=2, [Source]=0 },
+        [Blue]  = { [Sink]=0, [Source]=2 },
+    },
+    [2] = { 
+        [Red]   = { [Sink]=2, [Source]=1 },
+        [Green] = { [Sink]=3, [Source]=0 },
+        [Blue]  = { [Sink]=1, [Source]=2 },
+    },
+    [3] = { 
+        [Red]   = { [Sink]=3, [Source]=1 },
+        [Green] = { [Sink]=4, [Source]=0 },
+        [Blue]  = { [Sink]=6, [Source]=2 },
+    },
+    [4] = { 
+        [Red]   = { [Sink]=4, [Source]=1 },
+        [Green] = { [Sink]=5, [Source]=0 },
+        [Blue]  = { [Sink]=3, [Source]=2 },
+    },
+    [5] = { 
+        [Red]   = { [Sink]=5, [Source]=1 },
+        [Green] = { [Sink]=6, [Source]=0 },
+        [Blue]  = { [Sink]=4, [Source]=2 },
+    },
+    [6] = { 
+        [Red]   = { [Sink]=3, [Source]=4 },
+        [Green] = { [Sink]=4, [Source]=3 },
+        [Blue]  = { [Sink]=2, [Source]=5 },
+    },
+    [7] = { 
+        [Red]   = { [Sink]=6, [Source]=4 },
+        [Green] = { [Sink]=5, [Source]=3 },
+        [Blue]  = { [Sink]=3, [Source]=5 },
+    },
+    [8] = { 
+        [Red]   = { [Sink]=5, [Source]=4 },
+        [Green] = { [Sink]=0, [Source]=3 },
+        [Blue]  = { [Sink]=4, [Source]=5 },
+    },
+    [9] = { 
+        [Red]   = { [Sink]=0, [Source]=4 },
+        [Green] = { [Sink]=1, [Source]=3 },
+        [Blue]  = { [Sink]=6, [Source]=5 },
+    },
+    [10] = { 
+        [Red]   = { [Sink]=1, [Source]=4 },
+        [Green] = { [Sink]=2, [Source]=3 },
+        [Blue]  = { [Sink]=0, [Source]=5 },
+    },
+    [11] = { 
+        [Red]   = { [Sink]=2, [Source]=4 },
+        [Green] = { [Sink]=6, [Source]=3 },
+        [Blue]  = { [Sink]=1, [Source]=5 },
+    }
+};
+
+//Draw colour to a single RGB LED
+void draw_led(uint8_t channel, Color color){
+    //Unpack color components into array for easier acccess
+    uint8_t color_components[3] = { [Red]=color.R, [Green]=color.G, [Blue]=color.B };
+
+    for (uint8_t color_i = ColorIndex::Min; color_i <= ColorIndex::Max; color_i++){
+        uint8_t sink_pin = color_channel_frame_map[channel][color_i][Sink];
+        uint8_t source_pin = color_channel_frame_map[channel][color_i][Source];
+
+        //Write data to bcm_frames
+        for(uint8_t bit = 0; bit < BCM_RESOLUTION; bit++){
+            bitWrite(bcm_frames[sink_pin][bit], source_pin, bitRead(color_components[color_i], bit));
+        }
+    }
+}
 
 //Stores correction values to be subtracted from the counter values in the brightness map
 //They will be changed periodically if necessary
@@ -152,7 +255,7 @@ void turn_on_all_leds(uint8_t pin){
 }
 
 //Delay in ms after which to repeat the main loop
-const uint16_t loop_delay = 30;
+const uint16_t loop_delay = 1000;
 
 void loop()
 {
@@ -174,7 +277,21 @@ void loop()
     SerialUSB.write(output);
 
     //Advance animation
-    set_brightness(brightness + 1);
+    //set_brightness(brightness + 1);
+
+    brightness = (brightness + 1) % 3;
+    for(int i = 0; i < 12; i++){
+        switch(brightness){
+            case 0:
+                draw_led(i, {255, 0, 0});
+                break;
+            case 1:
+                draw_led(i, {0, 255, 0});
+                break;
+            case 2:
+                draw_led(i, {0, 0, 255});
+        }
+    }
 
     //Reset counters 
     interrupt_counter = 0;
