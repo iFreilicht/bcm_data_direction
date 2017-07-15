@@ -1,7 +1,7 @@
 #include "led_ring.h"
 
 //Output buffer
-char output[1000];
+char output[100];
 
 void setup()
 {
