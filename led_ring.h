@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "Arduino.h"
 
+#include "cue.h"
+
 namespace led_ring{
     const uint8_t BCM_RESOLUTION = 8;
     const uint8_t CHARLIE_PINS = 7;
@@ -18,6 +20,9 @@ namespace led_ring{
     uint16_t compares[BCM_RESOLUTION];
     uint16_t interrupt_counter = 0;
     uint16_t frame_counter = 0;
+
+    //Currently rendered cue
+    Cue active_cue = Cue();
 
     void reset_counters(){
         interrupt_counter = 0;
@@ -82,13 +87,6 @@ namespace led_ring{
         [5] = 256,
         [6] = 512,
         [7] = 1024
-    };
-
-    //Struct for storing colors as simple RGB values
-    struct Color{
-        uint8_t R;
-        uint8_t G;
-        uint8_t B;
     };
 
     namespace {
@@ -196,6 +194,19 @@ namespace led_ring{
         }
     }
 
+    //Write a single frame of cue to bcm_frames for the current timestep
+    void draw_cue(Cue cue, uint32_t time){
+        for(uint8_t channel = 0; channel < NUM_CHANNELS; channel++){
+            Color color = {0,0,0};
+
+            //Only get non-black color if current channel is active
+            if(bitRead(cue.channels, channel)){
+                color = cue.interpolate(time, channel);
+            }
+            draw_led(channel, color);
+        }
+    }
+
     //Stores correction values to be subtracted from the counter values in the brightness map
     //They will be changed periodically if necessary
     //uint8 would probably be enough, u16 is used to prevent potential overflow
@@ -234,6 +245,13 @@ namespace led_ring{
         SerialUSB.write(output_buffer);
     }
 
+    //draw one colour to all LEDs
+    void draw_all_leds(Color color){
+        for(int i = 0; i < 12; i++){
+            draw_led(i, color);
+        }
+    }
+
     //Initialise pins and timers for LED ring
     void init(){
         PORTB = 0x00; //Pullups disabled and output at LOW
@@ -246,9 +264,10 @@ namespace led_ring{
         TCCR1C &= 0x00;
         TIMSK1 &= 0x00;
 
-        //Self-test, light all LEDs
+        //Self-test
         #if 0
         delay(1000);
+        //Test hardware
         turn_on_all_leds(0); delay(1000); //5 LEDs on
         turn_on_all_leds(1); delay(1000); //5 LEDs on
         turn_on_all_leds(2); delay(1000); //5 LEDs on
@@ -256,6 +275,10 @@ namespace led_ring{
         turn_on_all_leds(4); delay(1000); //5 LEDs on
         turn_on_all_leds(5); delay(1000); //5 LEDs on
         turn_on_all_leds(6); delay(1000); //6 LEDs on
+        //Test COLOR_CHANNEL_FRAME_MAP
+        draw_all_leds({50, 0, 0}); delay(1000); //All LEDs red
+        draw_all_leds({0, 50, 0}); delay(1000); //All LEDs green
+        draw_all_leds({0, 0, 50}); delay(1000); //All LEDs blue
         #endif
 
         //Start timer and set prescaler
@@ -282,7 +305,13 @@ namespace led_ring{
         //Loop unrolling
         if(bit_index == 0){
             ++frame_counter;
-            frame_index = (frame_index + 1) % CHARLIE_PINS;
+            ++frame_index;
+            //after all channels have been rendered,
+            //draw the next cue frame
+            if(frame_index == CHARLIE_PINS){
+                frame_index = 0;
+                draw_cue(active_cue, millis());
+            }
             set_sink_pin(frame_index);
 
             while(bit_index < BCM_LOOP_UNROLL_AMOUNT){
