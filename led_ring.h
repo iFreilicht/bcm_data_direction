@@ -10,8 +10,8 @@ namespace led_ring{
     const uint8_t NUM_CHANNELS = 12; //each channel has three LEDs
 
     //If one of these values is changed, the other NEEDS to be changed accordingly!
-    const uint8_t prescaler_setting = 0b00000010;
-    const uint16_t prescaler_factor = 8;
+    const uint8_t PRESCALER_SETTING = 0b00000010;
+    const uint16_t PRESCALER_FACTOR = 8;
 
     //Storage for output over serial connection
     uint16_t counts[BCM_RESOLUTION];
@@ -73,9 +73,9 @@ namespace led_ring{
     volatile uint8_t bit_index = 0;
 
     //Mapping of bits to time the bit is taking up in the Bit Code Modulation schedule
-    //Normally bcm_brightness_map[bit] == 1 << bit, but for gamma correction
+    //Normally BCM_BRIGHTNESS_MAP[bit] == 1 << bit, but for gamma correction
     //this can be adjusted
-    const uint16_t bcm_brightness_map [BCM_RESOLUTION] = {
+    const uint16_t BCM_BRIGHTNESS_MAP [BCM_RESOLUTION] = {
       //bit | delay in clock-cycles
         [0] = 8,
         [1] = 16,
@@ -94,7 +94,7 @@ namespace led_ring{
         uint8_t B;
     };
 
-    //Allowed second index values for color_channel_frame_map
+    //Allowed second index values for COLOR_CHANNEL_FRAME_MAP
     enum ColorIndex{
         Min,
         Red = Min,
@@ -103,14 +103,14 @@ namespace led_ring{
         Max = Blue
     };
 
-    //Allowed thrid index values for color_channel_frame_map
+    //Allowed thrid index values for COLOR_CHANNEL_FRAME_MAP
     enum PinIndex{
         Sink,
         Source
     };
 
     //For each channel and colour, store the sink and source pin
-    const uint8_t color_channel_frame_map [NUM_CHANNELS][3][2] = {
+    const uint8_t COLOR_CHANNEL_FRAME_MAP [NUM_CHANNELS][3][2] = {
         [0] = { 
             [Red]   = { [Sink]=0, [Source]=1 },
             [Green] = { [Sink]=1, [Source]=0 },
@@ -179,8 +179,8 @@ namespace led_ring{
         uint8_t color_components[3] = { [Red]=color.R, [Green]=color.G, [Blue]=color.B };
 
         for (uint8_t color_i = ColorIndex::Min; color_i <= ColorIndex::Max; color_i++){
-            uint8_t sink_pin = color_channel_frame_map[channel][color_i][Sink];
-            uint8_t source_pin = color_channel_frame_map[channel][color_i][Source];
+            uint8_t sink_pin = COLOR_CHANNEL_FRAME_MAP[channel][color_i][Sink];
+            uint8_t source_pin = COLOR_CHANNEL_FRAME_MAP[channel][color_i][Source];
 
             //Write data to bcm_frames
             for(uint8_t bit = 0; bit < BCM_RESOLUTION; bit++){
@@ -203,8 +203,8 @@ namespace led_ring{
     //
     //This value should be set experimentally to the lowest amount at which
     //all measured delays (in clockcycles) per bit are equal to those
-    //specified in bcm_brightness_map
-    const uint8_t bcm_loop_unroll_amount = 3;
+    //specified in BCM_BRIGHTNESS_MAP
+    const uint8_t BCM_LOOP_UNROLL_AMOUNT = 3;
 
     //Set the brightness of three of the six connected LEDs 
     //while leaving the other three off
@@ -235,6 +235,27 @@ namespace led_ring{
         }
     }
 
+    //Output buffer for string formatting
+    char output_buffer[100];
+
+    //Write debugging information to SerialUSB connection
+    void print_debug_info(){
+        sprintf(output_buffer, "TCNT1: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
+        //counts is shifted by one byte as it is written to after bit_index was already advanced
+        counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0]);
+        SerialUSB.write(output_buffer);
+
+        sprintf(output_buffer,  "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
+        BCM_BRIGHTNESS_MAP[0], BCM_BRIGHTNESS_MAP[1], BCM_BRIGHTNESS_MAP[2], BCM_BRIGHTNESS_MAP[3],
+        BCM_BRIGHTNESS_MAP[4], BCM_BRIGHTNESS_MAP[5], BCM_BRIGHTNESS_MAP[6], BCM_BRIGHTNESS_MAP[7]);
+        SerialUSB.write(output_buffer);
+
+        sprintf(output_buffer, "Corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
+        bcm_delay_correction_offset[0], bcm_delay_correction_offset[1], bcm_delay_correction_offset[2], bcm_delay_correction_offset[3],
+        bcm_delay_correction_offset[4], bcm_delay_correction_offset[5], bcm_delay_correction_offset[6], bcm_delay_correction_offset[7]);
+        SerialUSB.write(output_buffer);
+    }
+
     //Initialise pins and timers for LED ring
     void init(){
         PORTB = 0x00; //Pullups disabled and output at LOW
@@ -260,7 +281,7 @@ namespace led_ring{
         #endif
 
         //Start timer and set prescaler
-        TCCR1B |= prescaler_setting; //Set precaler to 1/64
+        TCCR1B |= PRESCALER_SETTING; //Set precaler to 1/64
 
         //Initial delay
         OCR1A = 1;
@@ -286,7 +307,7 @@ namespace led_ring{
             frame_index = (frame_index + 1) % CHARLIE_PINS;
             set_sink_pin(frame_index);
 
-            while(bit_index < bcm_loop_unroll_amount){
+            while(bit_index < BCM_LOOP_UNROLL_AMOUNT){
                 //draw frame
                 PORTB = sink_mask_port & bcm_frames[frame_index][bit_index];
                 DDRB = sink_mask_ddr | bcm_frames[frame_index][bit_index];
@@ -297,8 +318,8 @@ namespace led_ring{
 
                 //busy delay. the loop_2 function executes 4 cycles per iteration
                 _delay_loop_2(
-                    (bcm_brightness_map[bit_index] - bcm_delay_correction_offset[bit_index]) 
-                    * (prescaler_factor/4)
+                    (BCM_BRIGHTNESS_MAP[bit_index] - bcm_delay_correction_offset[bit_index]) 
+                    * (PRESCALER_FACTOR/4)
                 );
 
                 bit_index++;
@@ -307,7 +328,7 @@ namespace led_ring{
 
         //set delay for next bit (subtracting a correction amount to compensate
         //for "wasted" instructions inside this interrupt handler)
-        OCR1A = bcm_brightness_map[bit_index] - bcm_delay_correction_offset[bit_index];
+        OCR1A = BCM_BRIGHTNESS_MAP[bit_index] - bcm_delay_correction_offset[bit_index];
 
         //draw frame
         PORTB = sink_mask_port & bcm_frames[frame_index][bit_index];
@@ -322,7 +343,7 @@ namespace led_ring{
             for(uint8_t i = 0; i < BCM_RESOLUTION; i++){
                 //counts is shifted by one byte as it is written to after bit_index was already advanced
                 uint16_t measured_count = counts[(i+1) % BCM_RESOLUTION];
-                uint16_t target_count = bcm_brightness_map[i];
+                uint16_t target_count = BCM_BRIGHTNESS_MAP[i];
 
                 //Underflow doesn't need to be checked for, it can not occur
                 //We only increment/decrement as the delay correction is updated very frequently
@@ -334,7 +355,7 @@ namespace led_ring{
                     --(bcm_delay_correction_offset[i]);
                 } else if (target_count < measured_count){
                     //if we measure to many counts, the correction is too low
-                    if(bcm_delay_correction_offset[i] + 1 < bcm_brightness_map[i])
+                    if(bcm_delay_correction_offset[i] + 1 < BCM_BRIGHTNESS_MAP[i])
                         ++(bcm_delay_correction_offset[i]);
                 }
             }
