@@ -184,10 +184,10 @@ void setup()
 
     //Clear all Timer configuration flags, in case Arduino set them
     //This stops the timer, disconnects all output pins and sets mode to Normal
-    TCCR3A &= 0x00;
-    TCCR3B &= 0x00;
-    TCCR3C &= 0x00;
-    TIMSK3 &= 0x00;
+    TCCR1A &= 0x00;
+    TCCR1B &= 0x00;
+    TCCR1C &= 0x00;
+    TIMSK1 &= 0x00;
 
     //Self-test, light all LEDs
     #if 0
@@ -202,13 +202,13 @@ void setup()
     #endif
 
     //Start timer and set prescaler
-    TCCR3B |= prescaler_setting; //Set precaler to 1/64
+    TCCR1B |= prescaler_setting; //Set precaler to 1/64
 
     //Initial delay
-    OCR3A = 1;
+    OCR1A = 1;
 
     //Enable Output Compare A Match Interrupt
-    bitSet(TIMSK3, OCIE3A);
+    bitSet(TIMSK1, OCIE1A);
 }
 
 //Brightness for demo animation
@@ -261,7 +261,7 @@ void loop()
 {
     //Debugging output
     sprintf(output, "Brightness: %3i; Interrupts after %ums: %6u; FPS: %4u\n"
-    "TCNT3: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
+    "TCNT1: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "bcm_f: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
     "corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
@@ -318,7 +318,7 @@ void set_sink_pin(int value){
 }
 
 //Main interrupt for executing Bit Code Modulation
-ISR( TIMER3_COMPA_vect ){
+ISR( TIMER1_COMPA_vect ){
     int old_sreg = SREG;
     cli(); //pause interrupts
 
@@ -340,8 +340,8 @@ ISR( TIMER3_COMPA_vect ){
             DDRB = sink_mask_ddr | bcm_frames[frame_index][bit_index];
 
             //log time for previous frame index and reset timer
-            counts[bit_index] = TCNT3;
-            TCNT3 = 0;
+            counts[bit_index] = TCNT1;
+            TCNT1 = 0;
 
             //busy delay. the loop_2 function executes 4 cycles per iteration
             _delay_loop_2(
@@ -355,14 +355,14 @@ ISR( TIMER3_COMPA_vect ){
 
     //set delay for next bit (subtracting a correction amount to compensate
     //for "wasted" instructions inside this interrupt handler)
-    OCR3A = bcm_brightness_map[bit_index] - bcm_delay_correction_offset[bit_index];
+    OCR1A = bcm_brightness_map[bit_index] - bcm_delay_correction_offset[bit_index];
 
     //draw frame
     PORTB = sink_mask_port & bcm_frames[frame_index][bit_index];
     DDRB = sink_mask_ddr | bcm_frames[frame_index][bit_index];
 
-    counts[bit_index] = TCNT3; //log time for previous frame index
-    TCNT3 = 0; //reset timer. This needs to happen directly after time logging to guarantee accurate results
+    counts[bit_index] = TCNT1; //log time for previous frame index
+    TCNT1 = 0; //reset timer. This needs to happen directly after time logging to guarantee accurate results
     SREG = old_sreg; //turn on interrupts again
 
     //Adjust delay correction
