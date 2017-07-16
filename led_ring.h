@@ -19,6 +19,7 @@ namespace led_ring{
     uint16_t counts[BCM_RESOLUTION];
     uint16_t compares[BCM_RESOLUTION];
     uint16_t interrupt_counter = 0;
+    uint16_t line_counter = 0;
     uint16_t frame_counter = 0;
 
     //Currently rendered cue
@@ -26,6 +27,7 @@ namespace led_ring{
 
     void reset_counters(){
         interrupt_counter = 0;
+        line_counter = 0;
         frame_counter = 0;
     }
 
@@ -57,20 +59,20 @@ namespace led_ring{
         }
     }
 
-    //BCM Frames for one single frame of an animation
+    //One single frame of an animation
     //The first index is equivalent to the active source pin,
     //The second index to the active BCM bit.
     //Storing the values this way allows to just write one byte to 
     //the pin port each time a new bit starts in BCM
-    volatile uint8_t bcm_frames [CHARLIE_PINS][BCM_RESOLUTION] = {
+    volatile uint8_t displayed_frame [CHARLIE_PINS][BCM_RESOLUTION] = {
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
         { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
     };
 
-    //Indices for accessing bcm_frames:
+    //Indices for accessing displayed_frame:
     //First index, maximum is 6
-    volatile uint8_t frame_index = 0;
+    volatile uint8_t line_index = 0;
     //Second index, maximum is BCM_RESOLUTION-1
     volatile uint8_t bit_index = 0;
 
@@ -90,7 +92,7 @@ namespace led_ring{
     };
 
     namespace {
-        //Allowed second index values for COLOR_CHANNEL_FRAME_MAP
+        //Allowed second index values for COLOR_CHANNEL_PIN_MAP
         enum ColorIndex{
             Min,
             Red = Min,
@@ -99,14 +101,14 @@ namespace led_ring{
             Max = Blue
         };
 
-        //Allowed thrid index values for COLOR_CHANNEL_FRAME_MAP
+        //Allowed thrid index values for COLOR_CHANNEL_PIN_MAP
         enum PinIndex{
             Sink,
             Source
         };
 
         //For each channel and colour, store the sink and source pin
-        const PROGMEM uint8_t COLOR_CHANNEL_FRAME_MAP [NUM_CHANNELS][3][2] = {
+        const PROGMEM uint8_t COLOR_CHANNEL_PIN_MAP [NUM_CHANNELS][3][2] = {
             [0] = { 
                 [Red]   = { [Sink]=0, [Source]=1 },
                 [Green] = { [Sink]=1, [Source]=0 },
@@ -170,11 +172,11 @@ namespace led_ring{
         };
 
         inline uint8_t get_sink_pin(uint8_t channel, ColorIndex color_index){
-            return pgm_read_byte( &( COLOR_CHANNEL_FRAME_MAP[channel][color_index][Sink] ) );
+            return pgm_read_byte( &( COLOR_CHANNEL_PIN_MAP[channel][color_index][Sink] ) );
         }
 
         inline uint8_t get_source_pin(uint8_t channel, ColorIndex color_index){
-            return pgm_read_byte( &( COLOR_CHANNEL_FRAME_MAP[channel][color_index][Source] ) );
+            return pgm_read_byte( &( COLOR_CHANNEL_PIN_MAP[channel][color_index][Source] ) );
         }
     }
 
@@ -187,14 +189,14 @@ namespace led_ring{
             uint8_t sink_pin = get_sink_pin(channel, (ColorIndex)color_i);
             uint8_t source_pin = get_source_pin(channel, (ColorIndex)color_i);
 
-            //Write data to bcm_frames
+            //Write data to displayed_frame
             for(uint8_t bit = 0; bit < BCM_RESOLUTION; bit++){
-                bitWrite(bcm_frames[sink_pin][bit], source_pin, bitRead(color_components[color_i], bit));
+                bitWrite(displayed_frame[sink_pin][bit], source_pin, bitRead(color_components[color_i], bit));
             }
         }
     }
 
-    //Write a single frame of cue to bcm_frames for the current timestep
+    //Write a single line of cue to displayed_frame for the current timestep
     void draw_cue(Cue cue, uint32_t time){
         for(uint8_t channel = 0; channel < NUM_CHANNELS; channel++){
             Color color = {0,0,0};
@@ -275,7 +277,7 @@ namespace led_ring{
         turn_on_all_leds(4); delay(1000); //5 LEDs on
         turn_on_all_leds(5); delay(1000); //5 LEDs on
         turn_on_all_leds(6); delay(1000); //6 LEDs on
-        //Test COLOR_CHANNEL_FRAME_MAP
+        //Test COLOR_CHANNEL_PIN_MAP
         draw_all_leds({50, 0, 0}); delay(1000); //All LEDs red
         draw_all_leds({0, 50, 0}); delay(1000); //All LEDs green
         draw_all_leds({0, 0, 50}); delay(1000); //All LEDs blue
@@ -299,26 +301,27 @@ namespace led_ring{
         //debugging
         ++interrupt_counter;
 
-        //advance frame index
+        //advance bit index
         bit_index = (bit_index + 1) % BCM_RESOLUTION;
 
         //Loop unrolling
         if(bit_index == 0){
-            ++frame_counter;
-            ++frame_index;
-            //after all channels have been rendered,
-            //draw the next cue frame
-            if(frame_index == CHARLIE_PINS){
-                frame_index = 0;
+            ++line_counter;
+            ++line_index;
+            //after all bits have been rendered,
+            //draw the next line
+            if(line_index == CHARLIE_PINS){
+                line_index = 0;
+                ++frame_counter;
             }
-            set_sink_pin(frame_index);
+            set_sink_pin(line_index);
 
             while(bit_index < BCM_LOOP_UNROLL_AMOUNT){
-                //draw frame
-                PORTB = sink_mask_port & bcm_frames[frame_index][bit_index];
-                DDRB = sink_mask_ddr | bcm_frames[frame_index][bit_index];
+                //draw line
+                PORTB = sink_mask_port & displayed_frame[line_index][bit_index];
+                DDRB = sink_mask_ddr | displayed_frame[line_index][bit_index];
 
-                //log time for previous frame index and reset timer
+                //log time for previous line index and reset timer
                 counts[bit_index] = TCNT1;
                 TCNT1 = 0;
 
@@ -336,11 +339,11 @@ namespace led_ring{
         //for "wasted" instructions inside this interrupt handler)
         OCR1A = BCM_BRIGHTNESS_MAP[bit_index] - bcm_delay_correction_offset[bit_index];
 
-        //draw frame
-        PORTB = sink_mask_port & bcm_frames[frame_index][bit_index];
-        DDRB = sink_mask_ddr | bcm_frames[frame_index][bit_index];
+        //draw line
+        PORTB = sink_mask_port & displayed_frame[line_index][bit_index];
+        DDRB = sink_mask_ddr | displayed_frame[line_index][bit_index];
 
-        counts[bit_index] = TCNT1; //log time for previous frame index
+        counts[bit_index] = TCNT1; //log time for previous line index
         TCNT1 = 0; //reset timer. This needs to happen directly after time logging to guarantee accurate results
         SREG = old_sreg; //turn on interrupts again
 
