@@ -66,17 +66,16 @@ struct Cue{
 
     private:
         //Calculate point on linear transition between two values
-        //start MUST be smaller than or equal to end
+        //It is required that (time <= duration)
         uint32_t linear_transition(uint32_t start, uint32_t end, uint32_t time){
-            uint32_t delta = end - start;
-
-            //we need to make sure that for most arithmetic calculations, 
-            //values stay wi1n positive integer bounds
+            //we need to make sure that for each calculation, 
+            //the intermediate result is a positive integer
+            uint32_t delta = start < end ? end - start : start - end;
 
             uint32_t summand = time < ramp_parameter ?
                 (delta * time) / ramp_parameter :
                 delta - (delta * (time - ramp_parameter))/(duration - ramp_parameter);
 
-            return start + summand;
+            return start < end ? start + summand : start - summand;
         }
 };
