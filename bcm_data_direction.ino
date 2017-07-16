@@ -3,18 +3,36 @@
 //Output buffer
 char output[100];
 
-Cue test_cue = Cue();
+const uint8_t MAX_NUM_CUES = 3;
+uint8_t cue_index = 0;
+Cue demo_cues[MAX_NUM_CUES];
+
 
 void setup()
 {
-    test_cue.duration = 500;
-    test_cue.ramp_parameter = 250;
-    test_cue.ramp_type = RampType::jump;
-    test_cue.time_divisor = 12;
-    test_cue.start_color = {255, 50, 0};
-    test_cue.end_color = {0, 50, 255}; 
+    Cue white_black_rgb = Cue();
+    white_black_rgb.ramp_type = RampType::linearRGB;
+    white_black_rgb.start_color = {255, 255, 255};
+    white_black_rgb.end_color = {0, 0, 0};
+    led_ring::active_cue = demo_cues[0] = white_black_rgb;
 
-    led_ring::active_cue = test_cue;
+    Cue blue_orange_jump = Cue();
+    blue_orange_jump.duration = 500;
+    blue_orange_jump.ramp_parameter = 250;
+    blue_orange_jump.ramp_type = RampType::jump;
+    blue_orange_jump.time_divisor = 6;
+    blue_orange_jump.reverse = true;
+    blue_orange_jump.start_color = {255, 50, 0};
+    blue_orange_jump.end_color = {0, 50, 255};
+    demo_cues[1] = blue_orange_jump;
+
+    Cue cyan_yellow_rgb = Cue();
+    cyan_yellow_rgb.duration = 2000;
+    cyan_yellow_rgb.ramp_parameter = 1000;
+    cyan_yellow_rgb.ramp_type = RampType::linearRGB;
+    cyan_yellow_rgb.start_color = {0x00, 0xF3, 0xF3};
+    cyan_yellow_rgb.end_color = {0xEE, 0xF3, 0x00};
+    demo_cues[2] = cyan_yellow_rgb;
 
     SerialUSB.begin(9600);
 
@@ -30,6 +48,11 @@ void loop()
     sprintf(output, "Interrupts after %ums: %6u; FPS: %4u\n",
     LOOP_DELAY, led_ring::interrupt_counter, (uint16_t)(((uint32_t)led_ring::frame_counter)*1000/LOOP_DELAY/led_ring::CHARLIE_PINS));
     SerialUSB.write(output);
+
+    if(millis() % 3000 <= LOOP_DELAY){
+        cue_index = (cue_index + 1) % MAX_NUM_CUES;
+        led_ring::active_cue = demo_cues[cue_index];
+    }
 
     led_ring::print_debug_info();
 
