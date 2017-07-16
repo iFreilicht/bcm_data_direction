@@ -310,7 +310,6 @@ namespace led_ring{
             //draw the next cue frame
             if(frame_index == CHARLIE_PINS){
                 frame_index = 0;
-                draw_cue(active_cue, millis());
             }
             set_sink_pin(frame_index);
 

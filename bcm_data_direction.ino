@@ -22,7 +22,7 @@ void setup()
 }
 
 //Delay in ms after which to repeat the main loop
-const uint16_t LOOP_DELAY = 1000;
+const uint16_t LOOP_DELAY = 20;
 
 void loop()
 {
@@ -34,6 +34,8 @@ void loop()
     led_ring::print_debug_info();
 
     led_ring::reset_counters();
+
+    led_ring::draw_cue(led_ring::active_cue, millis());
 
     delay(LOOP_DELAY);
 }
