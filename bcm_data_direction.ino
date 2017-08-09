@@ -5,6 +5,8 @@ char output[100];
 
 uint8_t cue_index = 0;
 
+using namespace freilite::iris;
+
 void setup()
 {
     Cue white_black_rgb = Cue();

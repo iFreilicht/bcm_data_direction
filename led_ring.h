@@ -7,6 +7,8 @@
 #include "cue.h"
 #include "schedule.h"
 
+namespace freilite{
+namespace iris{
 namespace led_ring{
     const uint8_t MAX_NUM_CUES = 3;
 
@@ -443,4 +445,6 @@ namespace led_ring{
             }
         }
     }
+}
+}
 }
