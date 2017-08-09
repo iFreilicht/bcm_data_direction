@@ -3,10 +3,7 @@
 //Output buffer
 char output[100];
 
-const uint8_t MAX_NUM_CUES = 3;
 uint8_t cue_index = 0;
-Cue demo_cues[MAX_NUM_CUES];
-
 
 void setup()
 {
@@ -14,7 +11,7 @@ void setup()
     white_black_rgb.ramp_type = RampType::linearRGB;
     white_black_rgb.start_color = {255, 255, 255};
     white_black_rgb.end_color = {0, 0, 0};
-    led_ring::active_cue = demo_cues[0] = white_black_rgb;
+    led_ring::active_cue = led_ring::loaded_cues[0] = white_black_rgb;
 
     Cue blue_orange_jump = Cue();
     blue_orange_jump.duration = 500;
@@ -24,7 +21,7 @@ void setup()
     blue_orange_jump.reverse = true;
     blue_orange_jump.start_color = {255, 50, 0};
     blue_orange_jump.end_color = {0, 50, 255};
-    demo_cues[1] = blue_orange_jump;
+    led_ring::loaded_cues[1] = blue_orange_jump;
 
     Cue cyan_yellow_rgb = Cue();
     cyan_yellow_rgb.duration = 2000;
@@ -32,7 +29,7 @@ void setup()
     cyan_yellow_rgb.ramp_type = RampType::linearRGB;
     cyan_yellow_rgb.start_color = {0x00, 0xF3, 0xF3};
     cyan_yellow_rgb.end_color = {0xEE, 0xF3, 0x00};
-    demo_cues[2] = cyan_yellow_rgb;
+    led_ring::loaded_cues[2] = cyan_yellow_rgb;
 
     SerialUSB.begin(9600);
 
@@ -40,7 +37,7 @@ void setup()
 }
 
 //Delay in ms after which to repeat the main loop
-const uint16_t LOOP_DELAY = 20;
+const uint16_t LOOP_DELAY = 10;
 
 void loop()
 {
@@ -50,15 +47,17 @@ void loop()
     SerialUSB.write(output);
 
     if(millis() % 3000 <= LOOP_DELAY){
-        cue_index = (cue_index + 1) % MAX_NUM_CUES;
-        led_ring::active_cue = demo_cues[cue_index];
+        cue_index = (cue_index + 1) % led_ring::MAX_NUM_CUES;
+        led_ring::active_cue = led_ring::loaded_cues[cue_index];
     }
-
+ 
     led_ring::print_debug_info();
 
     led_ring::reset_counters();
 
-    led_ring::draw_cue(led_ring::active_cue, millis());
+    //led_ring::draw_cue(led_ring::active_cue, millis());
+
+    led_ring::draw_schedule(&led_ring::loaded_schedules[cue_index], millis());
 
     delay(LOOP_DELAY);
 }

@@ -5,8 +5,11 @@
 #include "Arduino.h"
 
 #include "cue.h"
+#include "schedule.h"
 
 namespace led_ring{
+    const uint8_t MAX_NUM_CUES = 3;
+
     const uint8_t BCM_RESOLUTION = 8;
     const uint8_t CHARLIE_PINS = 7;
     const uint8_t NUM_CHANNELS = 12; //each channel has three LEDs
@@ -24,6 +27,17 @@ namespace led_ring{
 
     //Currently rendered cue
     Cue active_cue = Cue();
+
+    //Currently loaded cues
+    Cue loaded_cues[MAX_NUM_CUES];
+
+    //Currently loaded schedules. Needs to be terminated by delay_t() terminator
+    delay_t loaded_schedules[MAX_NUM_CUES + 1] = {
+        delay_t(delimiter_flag_t::schedule, 0),
+        delay_t(delimiter_flag_t::schedule, 1),
+        delay_t(delimiter_flag_t::schedule, 2),
+        delay_t()
+    };
 
     void reset_counters(){
         interrupt_counter = 0;
@@ -197,16 +211,75 @@ namespace led_ring{
     }
 
     //Write a single line of cue to displayed_frame for the current timestep
-    void draw_cue(Cue cue, uint32_t time){
+    void draw_cue(Cue cue, uint32_t time, uint8_t draw_disabled_channels = true){
         for(uint8_t channel = 0; channel < NUM_CHANNELS; channel++){
-            Color color = {0,0,0};
-
             //Only get non-black color if current channel is active
             if(bitRead(cue.channels, channel)){
-                color = cue.interpolate(time, channel);
+                draw_led(channel, cue.interpolate(time, channel));
             }
-            draw_led(channel, color);
+            else if(draw_disabled_channels){
+                //If desired, draw disabled channels as black
+                draw_led(channel, {0,0,0});
+            }
         }
+    }
+
+    //Write a single line of a Schedule starting at schedule_begin to displayed_frame for the current timestep
+    void draw_schedule(const delay_t* schedule_begin, uint32_t time){
+        //Make sure schedule_begin is actually the start of a schedule
+        if (schedule_begin == nullptr) return;                  //invalid pointer
+        if (!schedule_begin->is_schedule_delimiter()) return;   //not start of a schedule
+        if (schedule_begin->cue_id() == INVALID_CUE_ID) return; //end of loaded_schedules
+
+        const delay_t* iter = schedule_begin;
+        uint8_t current_cue_id;
+        uint32_t current_delay;
+        bool currently_on;
+        bool relevant_delay_found;
+
+        //Will only be true on the first execution of while loop below
+        bool first_loop = true;
+
+        while (true){
+            //Seek the next delimiter
+            if (relevant_delay_found){
+                continue;
+            } 
+            //Prepare for parsing next period's delays
+            else if (iter->is_period_delimiter() || first_loop){
+                current_cue_id = iter->cue_id();
+                current_delay = 0;
+                currently_on = true;
+                relevant_delay_found = false;
+                first_loop = false;
+            }
+            //Draw and end loop if end of schedule is reached
+            else if (iter->is_schedule_delimiter() && !first_loop){
+                if (currently_on){
+                    draw_cue(loaded_cues[current_cue_id], time, false);
+                }
+
+                break;
+            }
+            else {
+                current_delay += iter->delay();
+
+                //Found the relevant delay, now we know 
+                //whether cue is on or off at this point in time
+                if (current_delay > time){
+                    relevant_delay_found = true;
+
+                    if (currently_on){
+                        draw_cue(loaded_cues[current_cue_id], time, false);
+                    }
+                }
+                
+                currently_on = !currently_on;   //toggle state of cue
+            }
+
+            //Increment iterator
+            ++iter;
+        }; 
     }
 
     //Stores correction values to be subtracted from the counter values in the brightness map
