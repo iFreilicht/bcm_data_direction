@@ -1,4 +1,5 @@
 #include <ArduinoSTL.h>
+#include <EEPROM.h>
 
 #include "led_ring.h"
 #include "storage.h"
@@ -9,6 +10,7 @@ using namespace freilite::iris;
 
 void setup()
 {
+    #if 0
     Cue white_black_rgb = Cue();
     white_black_rgb.ramp_type = RampType::linearRGB;
     white_black_rgb.start_color = {255, 255, 255};
@@ -36,6 +38,11 @@ void setup()
     storage::push_cue(cyan_yellow_rgb);
     storage::push_schedule(delay_t(delimiter_flag_t::schedule, 2));
 
+    storage::store_all_in_eeprom();
+    #else
+    storage::load_all_from_eeprom();
+    #endif
+
     SerialUSB.begin(9600);
 
     led_ring::init();
@@ -49,6 +56,10 @@ void loop()
     //Debugging output
     std::printf("Interrupts after %ums: %6u; cue_index: %u; FPS: %4u\n",
     LOOP_DELAY, led_ring::interrupt_counter, cue_index, (uint16_t)(((uint32_t)led_ring::frame_counter)*1000/LOOP_DELAY/led_ring::CHARLIE_PINS));
+
+    std::printf("Loaded cues: %u; Loaded schedules; %u\n",
+    storage::number_of_cues(), storage::number_of_schedules());
+
 
     if(millis() % 3000 <= LOOP_DELAY){
         cue_index = (cue_index + 1) % storage::number_of_cues();
