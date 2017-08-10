@@ -298,20 +298,17 @@ namespace led_ring{
 
     //Write debugging information to SerialUSB connection
     void print_debug_info(){
-        sprintf(output_buffer, "TCNT1: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
-        //counts is shifted by one byte as it is written to after bit_index was already advanced
-        counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0]);
-        SerialUSB.write(output_buffer);
-
-        sprintf(output_buffer,  "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
-        BCM_BRIGHTNESS_MAP[0], BCM_BRIGHTNESS_MAP[1], BCM_BRIGHTNESS_MAP[2], BCM_BRIGHTNESS_MAP[3],
-        BCM_BRIGHTNESS_MAP[4], BCM_BRIGHTNESS_MAP[5], BCM_BRIGHTNESS_MAP[6], BCM_BRIGHTNESS_MAP[7]);
-        SerialUSB.write(output_buffer);
-
-        sprintf(output_buffer, "Corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
-        bcm_delay_correction_offset[0], bcm_delay_correction_offset[1], bcm_delay_correction_offset[2], bcm_delay_correction_offset[3],
-        bcm_delay_correction_offset[4], bcm_delay_correction_offset[5], bcm_delay_correction_offset[6], bcm_delay_correction_offset[7]);
-        SerialUSB.write(output_buffer);
+        std::printf(
+            "TCNT1: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
+            "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
+            "Corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
+            //counts is shifted by one byte as it is written to after bit_index was already advanced
+            counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0],
+            BCM_BRIGHTNESS_MAP[0], BCM_BRIGHTNESS_MAP[1], BCM_BRIGHTNESS_MAP[2], BCM_BRIGHTNESS_MAP[3],
+            BCM_BRIGHTNESS_MAP[4], BCM_BRIGHTNESS_MAP[5], BCM_BRIGHTNESS_MAP[6], BCM_BRIGHTNESS_MAP[7],
+            bcm_delay_correction_offset[0], bcm_delay_correction_offset[1], bcm_delay_correction_offset[2], bcm_delay_correction_offset[3],
+            bcm_delay_correction_offset[4], bcm_delay_correction_offset[5], bcm_delay_correction_offset[6], bcm_delay_correction_offset[7]
+        );
     }
 
     //draw one colour to all LEDs

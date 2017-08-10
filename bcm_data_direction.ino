@@ -3,9 +3,6 @@
 #include "led_ring.h"
 #include "storage.h"
 
-//Output buffer
-char output[100];
-
 uint8_t cue_index = 0;
 
 using namespace freilite::iris;
@@ -53,9 +50,8 @@ const uint16_t LOOP_DELAY = 10;
 void loop()
 {
     //Debugging output
-    sprintf(output, "Interrupts after %ums: %6u; FPS: %4u\n",
+    std::printf("Interrupts after %ums: %6u; FPS: %4u\n",
     LOOP_DELAY, led_ring::interrupt_counter, (uint16_t)(((uint32_t)led_ring::frame_counter)*1000/LOOP_DELAY/led_ring::CHARLIE_PINS));
-    SerialUSB.write(output);
 
     if(millis() % 3000 <= LOOP_DELAY){
         cue_index = (cue_index + 1) % storage::loaded_cues.size();
