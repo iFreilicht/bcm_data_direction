@@ -18,6 +18,7 @@ namespace iris{
         }
     */
     //However, the unknown size of Schedules and Periods makes byte structure tricky
+    //(the overhead of an std::vector is 7 bytes, too much for our liking)
     //So they are implemented as an array of unions, which can look something like this
     //(each non-whitespace character is equivalent to one byte):
 
