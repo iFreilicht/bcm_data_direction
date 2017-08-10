@@ -199,10 +199,10 @@ namespace led_ring{
     }
 
     //Write a single line of cue to displayed_frame for the current timestep
-    void draw_cue(std::vector<Cue>::size_type cue_id, uint32_t time, uint8_t draw_disabled_channels = true){
-        if(cue_id >= storage::loaded_cues.size()) return;
+    void draw_cue(size_t cue_id, uint32_t time, uint8_t draw_disabled_channels = true){
+        if(cue_id >= storage::number_of_cues()) return;
 
-        Cue cue = storage::loaded_cues[cue_id];
+        auto cue = storage::get_cue(cue_id);
 
         for(uint8_t channel = 0; channel < NUM_CHANNELS; channel++){
             //Only get non-black color if current channel is active
@@ -217,16 +217,13 @@ namespace led_ring{
     }
 
     //Write a single line of a Schedule starting at schedule_begin to displayed_frame for the current timestep
-    void draw_schedule(std::vector<delay_t>::size_type schedule_begin_index, uint32_t time){
-        //Make sure schedule_begin is actually the start of a schedule
-        if (schedule_begin_index >= storage::loaded_schedules.size()) return;   //id too large
+    void draw_schedule(size_t schedule_id, uint32_t time){
+        if (schedule_id >= storage::number_of_schedules()) return;
 
-        std::vector<delay_t>::const_iterator iter = storage::loaded_schedules.begin() + schedule_begin_index;
+        auto iter = storage::schedule_begin(schedule_id);
+        auto end_iter = storage::schedule_end(schedule_id);
 
-        if (!iter->is_schedule_delimiter()) return;                             //not start of a schedule
-        if (iter->cue_id() == INVALID_CUE_ID) return;                           //end of loaded_schedules
-
-        uint8_t current_cue_id;
+        size_t current_cue_id;
         uint32_t current_delay;
         bool currently_on;
         bool relevant_delay_found;
@@ -248,7 +245,7 @@ namespace led_ring{
                 first_loop = false;
             }
             //Draw and end loop if end of schedule is reached
-            else if ((iter->is_schedule_delimiter() && !first_loop) || iter == storage::loaded_schedules.end()){
+            else if (iter == end_iter){
                 if (currently_on){
                     draw_cue(current_cue_id, time, false);
                 }
