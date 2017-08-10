@@ -11,31 +11,31 @@ using namespace freilite::iris;
 void setup()
 {
     #if 0
-    Cue white_black_rgb = Cue();
-    white_black_rgb.ramp_type = RampType::linearRGB;
-    white_black_rgb.start_color = {255, 255, 255};
-    white_black_rgb.end_color = {0, 0, 0};
-    storage::push_cue(white_black_rgb);
+    Cue new_cue= Cue();
+    new_cue.ramp_type = RampType::linearRGB;
+    new_cue.start_color = {255, 255, 255};
+    new_cue.end_color = {0, 0, 0};
+    storage::push_cue(new_cue);
     storage::push_schedule(delay_t(delimiter_flag_t::schedule, 0));
 
-    Cue blue_orange_jump = Cue();
-    blue_orange_jump.duration = 500;
-    blue_orange_jump.ramp_parameter = 250;
-    blue_orange_jump.ramp_type = RampType::jump;
-    blue_orange_jump.time_divisor = 6;
-    blue_orange_jump.reverse = true;
-    blue_orange_jump.start_color = {255, 50, 0};
-    blue_orange_jump.end_color = {0, 50, 255};
-    storage::push_cue(blue_orange_jump);
+    new_cue = Cue();
+    new_cue.duration = 500;
+    new_cue.ramp_parameter = 250;
+    new_cue.ramp_type = RampType::jump;
+    new_cue.time_divisor = 6;
+    new_cue.reverse = true;
+    new_cue.start_color = {255, 50, 0};
+    new_cue.end_color = {0, 50, 255};
+    storage::push_cue(new_cue);
     storage::push_schedule(delay_t(delimiter_flag_t::schedule, 1));
 
-    Cue cyan_yellow_rgb = Cue();
-    cyan_yellow_rgb.duration = 2000;
-    cyan_yellow_rgb.ramp_parameter = 1000;
-    cyan_yellow_rgb.ramp_type = RampType::linearRGB;
-    cyan_yellow_rgb.start_color = {0x00, 0xF3, 0xF3};
-    cyan_yellow_rgb.end_color = {0xEE, 0xF3, 0x00};
-    storage::push_cue(cyan_yellow_rgb);
+    new_cue = Cue();
+    new_cue.duration = 2000;
+    new_cue.ramp_parameter = 1000;
+    new_cue.ramp_type = RampType::linearRGB;
+    new_cue.start_color = {0x00, 0xF3, 0xF3};
+    new_cue.end_color = {0xEE, 0xF3, 0x00};
+    storage::push_cue(new_cue);
     storage::push_schedule(delay_t(delimiter_flag_t::schedule, 2));
 
     storage::store_all_in_eeprom();
