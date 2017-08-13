@@ -223,13 +223,22 @@ namespace led_ring{
         auto iter = storage::schedule_begin(schedule_id);
         auto end_iter = storage::schedule_end(schedule_id);
 
-        size_t current_cue_id;
-        uint32_t current_delay;
-        bool currently_on;
-        bool relevant_delay_found;
+        size_t current_cue_id = iter->cue_id();
+        uint32_t current_delay = 0;
+        bool currently_on = true;
+        bool relevant_delay_found = false;
 
-        //Will only be true on the first execution of while loop below
-        bool first_loop = true;
+        //Advance itertor to read schedule duration
+        ++iter;
+
+        //If schedule duration is not specified, it is set to be that of the first cue
+        uint16_t duration = 
+            iter == end_iter || !iter->is_delay() 
+            ? storage::get_cue(current_cue_id).duration
+            : iter->delay();
+
+        //Apply duration to time measure
+        time = time % duration;
 
         while (true){
             //Seek the next delimiter
@@ -237,12 +246,11 @@ namespace led_ring{
                 continue;
             } 
             //Prepare for parsing next period's delays
-            else if (iter->is_period_delimiter() || first_loop){
+            else if (iter->is_period_delimiter()){
                 current_cue_id = iter->cue_id();
                 current_delay = 0;
                 currently_on = true;
                 relevant_delay_found = false;
-                first_loop = false;
             }
             //Draw and end loop if end of schedule is reached
             else if (iter == end_iter){

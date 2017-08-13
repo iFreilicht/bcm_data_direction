@@ -22,12 +22,18 @@ namespace iris{
     //So they are implemented as an array of unions, which can look something like this
     //(each non-whitespace character is equivalent to one byte):
 
-    // SC || || || PC || || SC || SC || PC || ||
+    // SC DD || || PC || || SC SC PC SC DD ||
 
     // P := start of Period
     // S := start of Schedule (and of the first period of that Schedule)
+    // D := Duration of schedule
     // C := cue ID
     // | := delay
+
+    //When SC is followed by another SC or DC, this schedules duration is set to that of its first cue
+    //When SC is followed by DD, that is interpreted to be its duration (16 bits)
+    //When SC is followed by 0, the following two elements are interpreted to be its duration (32 bits)
+    //SC can not be followed by ||, it would be interpreted as DD.
 
 
     const uint8_t  MAXIMUM_CUE_ID   =   0xFE;
@@ -50,7 +56,7 @@ namespace iris{
                     delimiter_flag_t flag;
                     uint8_t cue_id;
                 } delimiter;
-                uint16_t delay;
+                uint16_t delay; //Duration of schedule if previous element was a schedule delimiter
             } _value;
 
         public:
