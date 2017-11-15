@@ -5,7 +5,7 @@
 
 namespace freilite{
 namespace iris{
-    enum class RampType{
+    enum class RampType : uint8_t{
         linearHSL,
         linearRGB,
         jump
