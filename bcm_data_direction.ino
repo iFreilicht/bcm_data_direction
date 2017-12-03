@@ -3,6 +3,7 @@
 
 #include "led_ring.h"
 #include "storage.h"
+#include "communication.h"
 
 uint8_t cue_index = 0;
 
@@ -53,19 +54,13 @@ const uint16_t LOOP_DELAY = 20;
 
 void loop()
 {
-    //Debugging output
-    std::printf("Interrupts after %ums: %6u; cue_index: %u; FPS: %4u\n",
-    LOOP_DELAY, led_ring::interrupt_counter, cue_index, (uint16_t)(((uint32_t)led_ring::frame_counter)*1000/LOOP_DELAY/led_ring::CHARLIE_PINS));
-
-    std::printf("Loaded cues: %u; Loaded schedules; %u\n",
-    storage::number_of_cues(), storage::number_of_schedules());
-
+    communication::handle_serial_io();
 
     if(millis() % 3000 <= LOOP_DELAY){
         cue_index = (cue_index + 1) % storage::number_of_cues();
     }
- 
-    led_ring::print_debug_info();
+
+    //led_ring::print_debug_info();
 
     led_ring::reset_counters();
 
