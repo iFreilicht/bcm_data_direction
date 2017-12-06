@@ -123,7 +123,7 @@ namespace communication{
                 return;
 
             default:
-                send_message(MessageData_Signal_Error);
+                printf("Signal unexpected, unknown, or not implemented.");
                 return;
         }
     }
