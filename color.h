@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
+#include <pb_encode.h>
+#include <pb_decode.h>
 namespace pb{
-    #include <pb_encode.h>
-    #include <pb_decode.h>
     #include "iris.pb.h"
 }
 
