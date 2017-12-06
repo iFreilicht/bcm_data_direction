@@ -5,10 +5,14 @@
 
 namespace freilite{
 namespace iris{
+    // This definition needs to be equivalent
+    // protobuf definition
+    // We re-define it because the enum defined by nanopb cannot be
+    // guaranteed to be just one byte long
     enum class RampType : uint8_t{
-        linearHSL,
-        linearRGB,
-        jump
+        jump = 0,
+        linearRGB = 1,
+        linearHSL = 2
     };
 
     struct Cue{
