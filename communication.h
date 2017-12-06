@@ -6,6 +6,8 @@
 
 #include <ArduinoSTL.h>
 
+#include "storage.h"
+
 namespace pb{
     #include <pb_encode.h>
     #include <pb_decode.h>
@@ -17,6 +19,9 @@ namespace iris{
 namespace communication{
     // Maximum size of nanopb's internal buffer
     const size_t MAX_SIZE_PB_BUFFER = 300;
+    // Maximum ms to wait for the next message
+    // 2000 seems to be a safe number, 1000 was too low
+    const size_t RECEIVE_TIMEOUT = 2000;
 
     using namespace pb;
 
@@ -80,7 +85,7 @@ namespace communication{
         return message;
     }
 
-    void send_message(MessageData& message){
+    void send_message(const MessageData& message){
         pb_encode(&pb_serial_out,
                           MessageData_fields,
                           &message);
@@ -94,8 +99,54 @@ namespace communication{
         send_message(message_data);
     }
 
+    void send_message(const pb::Cue& cue){
+        MessageData message_data = MessageData_init_default;
+        message_data.which_content = MessageData_cue_tag;
+        message_data.content.cue = cue;
+
+        send_message(message_data);
+    }
+
+    // Check if message is incoming
+    // Blocks for no more than RECEIVE_TIMEOUT milliseconds
+    bool message_incoming(){
+        const size_t TIMESTEP = 3;
+        unsigned long milliseconds = 0;
+        while(!SerialUSB.available()){
+            delay(TIMESTEP);
+            milliseconds += TIMESTEP;
+            if(milliseconds > RECEIVE_TIMEOUT){
+                printf("Timeout reached: %ims", milliseconds);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Wait for the next signal and return true if it's
+    bool next_requested(){
+        if(!message_incoming()){
+            return false;
+        }
+        return receive_message().content.signal ==
+               MessageData_Signal_RequestNext;
+    }
+
     void handle_info(){
         printf("Communication works!");
+    }
+
+    void handle_download_configuration(){
+        size_t num_cues = storage::number_of_cues();
+        for(int i = 0; i < num_cues; ++i){
+            send_message(storage::get_cue(i).as_pb_cue());
+            if(!next_requested()){
+                printf("Did not receive RequestNext.");
+                return;
+            }
+        }
+
+        send_message(MessageData_Signal_Confirm);
     }
 
     // Handle I/O
@@ -115,6 +166,10 @@ namespace communication{
         switch(request.content.signal){
             case MessageData_Signal_RequestInfo:
                 handle_info();
+                return;
+
+            case MessageData_Signal_DownloadConfiguration:
+                handle_download_configuration();
                 return;
 
             // Confirmations are always okay

@@ -3,6 +3,12 @@
 
 #include "color.h"
 
+namespace pb{
+    #include <pb_encode.h>
+    #include <pb_decode.h>
+    #include "iris.pb.h"
+}
+
 namespace freilite{
 namespace iris{
     // This definition needs to be equivalent
@@ -68,6 +74,27 @@ namespace iris{
                     result.B = linear_transition(start_color.B, end_color.B, time);
                     return result;
             }
+        }
+
+        // Return as protobuf-defined Cue
+        pb::Cue as_pb_cue(){
+            using namespace pb;
+
+            pb::Cue pb_cue = Cue_init_default;
+            // TODO: Implement channels
+            pb_cue.reverse = this->reverse;
+            pb_cue.wrap_hue = this->wrap_hue;
+            pb_cue.time_divisor = this->time_divisor;
+            pb_cue.delay = this->delay;
+            pb_cue.duration = this->duration;
+            pb_cue.ramp_type = pb::Cue_RampType(this->ramp_type);
+            pb_cue.reverse = this->reverse;
+
+            pb_cue.start_color = color_to_pb_color(this->start_color);
+            pb_cue.end_color = color_to_pb_color(this->end_color);
+            pb_cue.offset_color = color_to_pb_color(this->offset_color);
+
+            return pb_cue;
         }
 
         private:
