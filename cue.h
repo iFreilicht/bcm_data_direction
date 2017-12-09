@@ -1,6 +1,8 @@
 //Define all types and functions to encode cues
 #pragma once
 
+#include <Arduino.h>
+
 #include "color.h"
 
 #include <pb_encode.h>
@@ -81,7 +83,11 @@ namespace iris{
             using namespace pb;
 
             pb::Cue pb_cue = Cue_init_default;
-            // TODO: Implement channels
+
+            pb_cue.channels = {};
+            pb_cue.channels.funcs.encode = &encode_channels;
+            pb_cue.channels.arg = this;
+
             pb_cue.reverse = this->reverse;
             pb_cue.wrap_hue = this->wrap_hue;
             pb_cue.time_divisor = this->time_divisor;
@@ -101,7 +107,7 @@ namespace iris{
             //Calculate point on linear transition between two values
             //It is required that (time <= duration)
             uint32_t linear_transition(uint32_t start, uint32_t end, uint32_t time){
-                //we need to make sure that for each calculation, 
+                //we need to make sure that for each calculation,
                 //the intermediate result is a positive integer
                 uint32_t delta = start < end ? end - start : start - end;
 
@@ -110,6 +116,26 @@ namespace iris{
                     delta - (delta * (time - ramp_parameter))/(duration - ramp_parameter);
 
                 return start < end ? start + summand : start - summand;
+            }
+
+            // Encode channels and write them to output stream
+            static bool encode_channels(pb_ostream_t* stream,
+                                 const pb_field_t* field,
+                                 void* const* arg){
+                const Cue* cue = static_cast<const Cue*>(*arg);
+                // In proto3, all repeated fields are packed
+                if(!pb_encode_tag(stream, PB_WT_STRING, field->tag))
+                    return false;
+                // Each value is either 0 or one, so it will only be 
+                // one byte long
+                if(!pb_encode_varint(stream, 12))
+                    return false;
+
+                for(int i = 0; i < 12; i++){
+                    if(!pb_encode_varint(stream, bitRead(cue->channels, i)))
+                        return false;
+                }
+                return true;
             }
     };
 }
