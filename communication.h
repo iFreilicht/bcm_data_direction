@@ -107,6 +107,14 @@ namespace communication{
         send_message(message_data);
     }
 
+    void send_message(const pb::Schedule& schedule){
+        MessageData message_data = MessageData_init_default;
+        message_data.which_content = MessageData_schedule_tag;
+        message_data.content.schedule = schedule;
+
+        send_message(message_data);
+    }
+
     // Check if message is incoming
     // Blocks for no more than RECEIVE_TIMEOUT milliseconds
     bool message_incoming(){
@@ -137,6 +145,7 @@ namespace communication{
     }
 
     void handle_download_configuration(){
+        // Send cues
         size_t num_cues = storage::number_of_cues();
         for(int i = 0; i < num_cues; ++i){
             send_message(storage::get_cue(i).as_pb_cue());
@@ -146,6 +155,17 @@ namespace communication{
             }
         }
 
+        // Send schedules
+        size_t num_schedules = Schedules::count();
+        for(int i = 0; i < num_schedules; ++i){
+            send_message(Schedule(i).as_pb_schedule());
+            if(!next_requested()){
+                printf("Did not receive RequestNext.");
+                return;
+            }
+        }
+
+        // Send Confirm signal to indicate end of transmission
         send_message(MessageData_Signal_Confirm);
     }
 

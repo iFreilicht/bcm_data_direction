@@ -3,6 +3,12 @@
 
 #include <ArduinoSTL.h>
 
+#include <pb_encode.h>
+#include <pb_decode.h>
+namespace pb{
+    #include "iris.pb.h"
+}
+
 namespace freilite{
 namespace iris{
 
@@ -170,6 +176,85 @@ namespace iris{
     struct Schedule{
         private:
             size_t id;
+
+            //Holds begin and end iterator for one Period
+            struct period_range_t{
+                std::vector<delay_t>::const_iterator begin;
+                std::vector<delay_t>::const_iterator end;
+            };
+
+            //Encode Periods inside a schedule as a nanopb callback
+            static bool encode_periods(pb_ostream_t* stream,
+                                       const pb_field_t* field,
+                                       void* const* arg){
+                using namespace pb;
+
+                const Schedule* schedule = static_cast<const Schedule*>(*arg);
+                auto iter = schedule->begin();
+                auto end = schedule->end();
+
+                //Prepare period for encoding delays
+                pb::Schedule_Period pb_period = Schedule_Period_init_default;
+                pb_period.cue_id = iter->cue_id();
+
+                //Advance iterator
+                if (schedule->duration() == INVALID_DELAY){
+                    //Jump over Schedule delimiter
+                    iter += 1;
+                } else {
+                    //Jump over Schedule delimiter and duration
+                    iter += 2;
+                }
+
+                //Create range
+                period_range_t period_range = {iter, iter};
+                pb_period.delays.funcs.encode = &encode_delays;
+                pb_period.delays.arg = &period_range;
+
+                //Send tag before rest of message
+                if(!pb_encode_tag_for_field(stream, field))
+                    return false;
+
+                while(true){
+                    //Reached end of this period
+                    if(iter >= end || iter->is_delimiter()){
+                        //Send period as message
+                        period_range.end = iter;
+                        if(!pb_encode_submessage(stream, pb::Schedule_Period_fields, &pb_period))
+                            return false;
+
+                        //Stop when schedule is over
+                        if(iter >= end || iter->is_schedule_delimiter()){
+                            break;
+                        }
+
+                        //Reset range for next period
+                        period_range.begin = iter;
+                        pb_period.cue_id = iter->cue_id();
+                    }
+
+                    //Increment iterator
+                    ++iter;
+                }
+
+                return true;
+            }
+
+            //Encode Periods inside a period as a nanopb callback
+            static bool encode_delays(pb_ostream_t* stream,
+                                      const pb_field_t* field,
+                                      void* const* arg){
+                const period_range_t* period_range = static_cast<const period_range_t*>(*arg);
+                for(auto iter = period_range->begin; iter < period_range->end; ++iter){
+                    //Use non-packed repeated field for now
+                    if(!pb_encode_tag_for_field(stream, field))
+                        return false;
+                    //Encode actual delay
+                    if(!pb_encode_varint(stream, iter->delay()))
+                        return false;
+                }
+            }
+
         public: //non-static
             Schedule(size_t id) : id(id){}
 
@@ -199,6 +284,22 @@ namespace iris{
             //Return const iterator pointing directly after end of schedule
             inline std::vector<delay_t>::const_iterator end() const{
                 return Schedules::end_by_id(id);
+            }
+
+            //Return as protobuf defined Schedule
+            pb::Schedule as_pb_schedule(){
+                using namespace pb;
+
+                pb::Schedule pb_schedule = Schedule_init_default;
+
+                auto duration = this->duration();
+                pb_schedule.duration = duration == INVALID_DELAY ? 0 : duration;
+
+                pb_schedule.periods = {};
+                pb_schedule.periods.funcs.encode = &encode_periods;
+                pb_schedule.periods.arg = this;
+
+                return pb_schedule;
             }
 
             typedef void (draw_callback_t)(size_t cue_id, uint32_t time, uint8_t draw_disabled_channels);
@@ -267,6 +368,5 @@ namespace iris{
                 };
             }
     };
-
 }
 }
