@@ -14,6 +14,7 @@ namespace iris{
         }
 
         struct Schedule{
+            uint16_t duration;
             Period periods[];
         }
     */
@@ -30,11 +31,10 @@ namespace iris{
     // C := cue ID
     // | := delay
 
-    //When SC is followed by another SC or DC, this schedules duration is set to that of its first cue
+    //When SC is followed by another SC or DC, this schedules duration is not specified, see below
     //When SC is followed by DD, that is interpreted to be its duration (16 bits)
-    //When SC is followed by 0, the following two elements are interpreted to be its duration (32 bits)
+    //When SC is followed by 0, the duration is not specified and the cues will loop on their own
     //SC can not be followed by ||, it would be interpreted as DD.
-
 
     const uint8_t  MAXIMUM_CUE_ID   =   0xFE;
     const uint8_t  INVALID_CUE_ID   =   0xFF;
@@ -173,6 +173,19 @@ namespace iris{
         public: //non-static
             Schedule(size_t id) : id(id){}
 
+            //Return duration of this schedule
+            uint16_t duration(){
+                //If there is a duration specified, it's directly after
+                //the schedule delimiter
+                auto iter = begin() + 1;
+                if (iter != end() && iter->is_delay()){
+                    return iter->delay();
+                }
+                //It is important to know whether the duration was
+                //explicitly 0 or not set at all.
+                else return INVALID_DELAY;
+            }
+
             //Return true if this schedule is loaded
             inline bool exists(){
                 return id < Schedules::count();
@@ -198,12 +211,19 @@ namespace iris{
                 bool currently_on = true;
                 bool relevant_delay_found = false;
 
-                //Advance itertor to read schedule duration
-                ++iter;
-
                 //If schedule duration is specified, the effect is looped
-                if (iter != end_iter && iter->is_delay() && iter->delay() != 0){
+                auto duration = this->duration();
+                if (duration != 0){
                     time = time % iter->delay();
+                }
+
+                //Advance iterator
+                if (duration == INVALID_DELAY){
+                    //Jump over Schedule delimiter
+                    iter += 1;
+                } else {
+                    //Jump over Schedule delimiter and duration
+                    iter += 2;
                 }
 
                 while (true){
