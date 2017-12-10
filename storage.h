@@ -17,13 +17,6 @@ namespace storage{
     namespace{
         //Storage for all cues currently loaded
         std::vector<Cue> loaded_cues;
-
-        //Storage for all schedules currently loaded
-        std::vector<delay_t> loaded_schedules;
-
-        //Index map for schedules
-        //For a schedule_id it stores the index where that schedule starts in loaded_schedules
-        std::vector<uint8_t> schedule_indices;
     }
 
     //Load a cue
@@ -46,53 +39,10 @@ namespace storage{
         return loaded_cues.size();
     }
 
-    //Load a schedule element
-    void push_schedule(delay_t schedule_element){
-        //If a schedule delimiter is pushed, its index is added to the index map
-        if (schedule_element.is_schedule_delimiter()){
-            schedule_indices.push_back(loaded_schedules.size());
-        }
-
-        loaded_schedules.push_back(schedule_element);
-    }
-
-    //Unload all schedules
-    void clear_schedules(){
-        loaded_schedules.clear();
-        schedule_indices.clear();
-    }
-
-    //Return const iterator to starting schedule delimiter of schedule with ID schedule_id
-    //Will return iterator to end of loaded_schedules if schedule_id is too large
-    std::vector<delay_t>::const_iterator schedule_begin(size_t schedule_id){
-        if(schedule_id >= schedule_indices.size()){
-            return loaded_schedules.end();
-        }
-        return loaded_schedules.begin() + schedule_indices[schedule_id];
-    }
-
-    //Return const iterator pointing directly after end of schedule with ID schedule_id
-    std::vector<delay_t>::const_iterator schedule_end(size_t schedule_id){
-        //All schedules end before the beginning of the next schedule
-        return schedule_begin(schedule_id + 1);
-    }
-
-    //Return number of loaded schedules
-    size_t number_of_schedules(){
-        return schedule_indices.size();
-    }
-
     //Calculate size of actual information stored for cues and schedules
     size_t size_in_bytes(){
-        return loaded_cues.size() * sizeof(loaded_cues[0]) + loaded_schedules.size() * sizeof(loaded_schedules[0]);
+        return loaded_cues.size() * sizeof(loaded_cues[0]) + Schedules::size_in_bytes();
     }
-
-    //Overhead in bytes of cues and schedules when stored in memory
-    size_t memory_overhead = 
-            sizeof(loaded_cues)      +
-            sizeof(loaded_schedules) +
-            sizeof(schedule_indices) +
-            schedule_indices.size() * sizeof(schedule_indices[0]);
 
     //Additional info stored in EEPROM
     struct header_t{
@@ -112,7 +62,7 @@ namespace storage{
             return;
         }
 
-        header_t header = { loaded_cues.size(), loaded_schedules.size() };
+        header_t header = { loaded_cues.size(), Schedules::count() };
 
         //Iterator for the whole range
         iteratorT store_iter = begin;
@@ -132,9 +82,9 @@ namespace storage{
         }
 
         //Write schedules to range
-        const uint8_t* schedules_byte_iter = static_cast<const uint8_t*>(static_cast<void*>(&*loaded_schedules.begin()));
+        const uint8_t* schedules_byte_iter = static_cast<const uint8_t*>(static_cast<const void*>(&*Schedules::begin_by_id(0)));
 
-        for(int store_byte = 0; store_byte < sizeof(delay_t) * loaded_schedules.size(); ++store_byte, ++store_iter, ++schedules_byte_iter){
+        for(int store_byte = 0; store_byte < sizeof(delay_t) * Schedules::count(); ++store_byte, ++store_iter, ++schedules_byte_iter){
             *store_iter  = *schedules_byte_iter;
         }
     }
@@ -148,7 +98,7 @@ namespace storage{
     template<typename iteratorT>
     void load_all(iteratorT begin, iteratorT end){
         clear_cues();
-        clear_schedules();
+        Schedules::clear();
 
         //Iterator for the whole range
         iteratorT store_iter = begin;
@@ -183,7 +133,7 @@ namespace storage{
                 static_cast<uint8_t*>(static_cast<void*>(&schedule_element))[schedule_byte] = *store_iter;
             }
 
-            push_schedule(schedule_element);
+            Schedules::push_element(schedule_element);
         }
     }
 

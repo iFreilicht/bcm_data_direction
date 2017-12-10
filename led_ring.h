@@ -218,67 +218,10 @@ namespace led_ring{
 
     //Write a single line of a Schedule starting at schedule_begin to displayed_frame for the current timestep
     void draw_schedule(size_t schedule_id, uint32_t time){
-        if (schedule_id >= storage::number_of_schedules()) return;
+        Schedule schedule = Schedule(schedule_id);
+        if (!schedule.exists()) return;
 
-        auto iter = storage::schedule_begin(schedule_id);
-        auto end_iter = storage::schedule_end(schedule_id);
-
-        size_t current_cue_id = iter->cue_id();
-        uint32_t current_delay = 0;
-        bool currently_on = true;
-        bool relevant_delay_found = false;
-
-        //Advance itertor to read schedule duration
-        ++iter;
-
-        //If schedule duration is not specified, it is set to be that of the first cue
-        uint16_t duration = 
-            iter == end_iter || !iter->is_delay() 
-            ? storage::get_cue(current_cue_id).duration
-            : iter->delay();
-
-        //Apply duration to time measure
-        time = time % duration;
-
-        while (true){
-            //Seek the next delimiter
-            if (relevant_delay_found){
-                continue;
-            } 
-            //Prepare for parsing next period's delays
-            else if (iter->is_period_delimiter()){
-                current_cue_id = iter->cue_id();
-                current_delay = 0;
-                currently_on = true;
-                relevant_delay_found = false;
-            }
-            //Draw and end loop if end of schedule is reached
-            else if (iter == end_iter){
-                if (currently_on){
-                    draw_cue(current_cue_id, time, false);
-                }
-
-                break;
-            }
-            else {
-                current_delay += iter->delay();
-
-                //Found the relevant delay, now we know 
-                //whether cue is on or off at this point in time
-                if (current_delay > time){
-                    relevant_delay_found = true;
-
-                    if (currently_on){
-                        draw_cue(current_cue_id, time, false);
-                    }
-                }
-                
-                currently_on = !currently_on;   //toggle state of cue
-            }
-
-            //Increment iterator
-            ++iter;
-        }; 
+        schedule.draw(&draw_cue, time);
     }
 
     //Stores correction values to be subtracted from the counter values in the brightness map
