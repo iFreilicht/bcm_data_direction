@@ -174,7 +174,7 @@ namespace iris{
             Schedule(size_t id) : id(id){}
 
             //Return duration of this schedule
-            uint16_t duration(){
+            uint16_t duration() const{
                 //If there is a duration specified, it's directly after
                 //the schedule delimiter
                 auto iter = begin() + 1;
@@ -187,22 +187,22 @@ namespace iris{
             }
 
             //Return true if this schedule is loaded
-            inline bool exists(){
+            inline bool exists() const{
                 return id < Schedules::count();
             }
 
             //Return const iterator to starting schedule delimiter of schedule
-            inline std::vector<delay_t>::const_iterator begin(){
+            inline std::vector<delay_t>::const_iterator begin() const{
                 return Schedules::begin_by_id(id);
             }
 
             //Return const iterator pointing directly after end of schedule
-            inline std::vector<delay_t>::const_iterator end(){
+            inline std::vector<delay_t>::const_iterator end() const{
                 return Schedules::end_by_id(id);
             }
 
             typedef void (draw_callback_t)(size_t cue_id, uint32_t time, uint8_t draw_disabled_channels);
-            void draw(draw_callback_t* draw_cue, uint32_t time){
+            void draw(draw_callback_t* draw_cue, uint32_t time) const{
                 auto iter = this->begin();
                 auto end_iter = this->end();
 
