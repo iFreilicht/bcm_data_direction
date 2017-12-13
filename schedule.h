@@ -211,15 +211,14 @@ namespace iris{
                 pb_period.delays.funcs.encode = &encode_delays;
                 pb_period.delays.arg = &period_range;
 
-                //Send tag before rest of message
-                if(!pb_encode_tag_for_field(stream, field))
-                    return false;
-
                 while(true){
                     //Reached end of this period
                     if(iter >= end || iter->is_delimiter()){
                         //Send period as message
                         period_range.end = iter;
+
+                        if(!pb_encode_tag_for_field(stream, field))
+                            return false;
                         if(!pb_encode_submessage(stream, pb::Schedule_Period_fields, &pb_period))
                             return false;
 
@@ -229,7 +228,7 @@ namespace iris{
                         }
 
                         //Reset range for next period
-                        period_range.begin = iter;
+                        period_range.begin = iter + 1; //Skip delimiter
                         pb_period.cue_id = iter->cue_id();
                     }
 
