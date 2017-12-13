@@ -312,40 +312,44 @@ namespace iris{
                 bool relevant_delay_found = false;
 
                 //If schedule duration is specified, the effect is looped
-                auto duration = this->duration();
-                if (duration != 0){
-                    time = time % iter->delay();
-                }
-
-                //Advance iterator
-                if (duration == INVALID_DELAY){
+                uint32_t schedule_duration = this->duration();
+                if (schedule_duration == INVALID_DELAY){
                     //Jump over Schedule delimiter
                     iter += 1;
                 } else {
+                    //Loop the
+                    if (schedule_duration != 0){
+                        time = time % schedule_duration;
+                    }
                     //Jump over Schedule delimiter and duration
                     iter += 2;
                 }
 
                 while (true){
-                    //Seek the next delimiter
-                    if (relevant_delay_found){
-                        continue;
-                    }
                     //Prepare for parsing next period's delays
-                    else if (iter->is_period_delimiter()){
+                    if (iter->is_period_delimiter()){
+                        if (currently_on){
+                            (*draw_cue)(current_cue_id, time, false);
+                        }
+
                         current_cue_id = iter->cue_id();
                         current_delay = 0;
                         currently_on = true;
                         relevant_delay_found = false;
                     }
                     //Draw and end loop if end of schedule is reached
-                    else if (iter == end_iter){
+                    else if (iter >= end_iter){
                         if (currently_on){
                             (*draw_cue)(current_cue_id, time, false);
                         }
 
                         break;
                     }
+                    //Seek the next delimiter
+                    else if (relevant_delay_found){
+                        continue;
+                    }
+                    //Found a delay
                     else {
                         current_delay += iter->delay();
 
@@ -353,13 +357,11 @@ namespace iris{
                         //whether cue is on or off at this point in time
                         if (current_delay > time){
                             relevant_delay_found = true;
-
-                            if (currently_on){
-                                (*draw_cue)(current_cue_id, time, false);
-                            }
                         }
-
-                        currently_on = !currently_on;   //toggle state of cue
+                        else{
+                            //toggle state of cue
+                            currently_on = !currently_on;
+                        }
                     }
 
                     //Increment iterator
