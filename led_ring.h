@@ -6,6 +6,7 @@
 
 #include "cue.h"
 #include "schedule.h"
+#include "communication.h"
 
 #include "storage.h"
 
@@ -246,10 +247,10 @@ namespace led_ring{
 
     //Write debugging information to SerialUSB connection
     void print_debug_info(){
-        std::printf(
-            "TCNT1: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
-            "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
-            "Corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n",
+        communication::printf(
+            F("TCNT1: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
+              "BrtMp: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"
+              "Corrc: %6u, %6u, %6u, %6u, %6u, %6u, %6u, %6u\n"),
             //counts is shifted by one byte as it is written to after bit_index was already advanced
             counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7], counts[0],
             BCM_BRIGHTNESS_MAP[0], BCM_BRIGHTNESS_MAP[1], BCM_BRIGHTNESS_MAP[2], BCM_BRIGHTNESS_MAP[3],

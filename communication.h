@@ -6,7 +6,7 @@
 
 #include <ArduinoSTL.h>
 
-#include "storage.h"
+//#include "storage.h"
 
 #include <pb_encode.h>
 #include <pb_decode.h>
@@ -25,16 +25,29 @@ namespace communication{
 
     using namespace pb;
 
-    // Print just like std::printf but with leading EOT, see iris.proto for details
+    // Print just like std::printf but from a string stored in program
+    // memory and with leading EOT, see iris.proto for details
     // Should always be used instead of std::printf
-    int printf(const char* format, ... ){
-        int num_written = std::printf("\x04");
-        if(num_written < 1){
-            return num_written;
+    int printf(const __FlashStringHelper* format, ... ){
+        // Convert back from pseudo-class to pointer to program memory
+        const char* flash_string_pgm_ptr = reinterpret_cast<const char*>(format);
+        size_t string_length = strlen_P(flash_string_pgm_ptr);
+
+        // Initialise buffer
+        std::string buffer = std::string(string_length + 1, '\0');
+
+        // Write leading EOT to buffer
+        buffer[0] = '\x04';
+
+        // Load string from progmem to buffer
+        for(int i = 0; i < string_length; ++i){
+            buffer[i+1] = pgm_read_byte(flash_string_pgm_ptr + i);
         }
+
+        // Execute stl implementation of printf
         va_list arglist;
         va_start(arglist, format);
-        num_written += std::vprintf(format, arglist);
+        int num_written = std::vprintf(buffer.c_str(), arglist);
         va_end(arglist);
         return num_written;
     }
@@ -124,7 +137,7 @@ namespace communication{
             delay(TIMESTEP);
             milliseconds += TIMESTEP;
             if(milliseconds > RECEIVE_TIMEOUT){
-                printf("Timeout reached: %ims", milliseconds);
+                printf(F("Timeout reached: %ims"), milliseconds);
                 return false;
             }
         }
@@ -141,7 +154,7 @@ namespace communication{
     }
 
     void handle_info(){
-        printf("Communication works!");
+        printf(F("Communication works!"));
     }
 
     void handle_download_configuration(){
@@ -160,7 +173,7 @@ namespace communication{
         for(int i = 0; i < num_schedules; ++i){
             send_message(Schedule(i).as_pb_schedule());
             if(!next_requested()){
-                printf("Did not receive RequestNext.");
+                printf(F("Did not receive RequestNext."));
                 return;
             }
         }
@@ -198,7 +211,7 @@ namespace communication{
                 return;
 
             default:
-                printf("Signal unexpected, unknown, or not implemented.");
+                printf(F("Signal unexpected, unknown, or not implemented."));
                 return;
         }
     }

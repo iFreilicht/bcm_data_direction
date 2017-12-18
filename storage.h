@@ -10,6 +10,7 @@
 
 #include "cue.h"
 #include "schedule.h"
+#include "communication.h"
 
 namespace freilite{
 namespace iris{
@@ -58,7 +59,7 @@ namespace storage{
     void store_all(iteratorT begin, size_t maximum_size = 0){
         size_t total_size = size_in_bytes() + sizeof(header_t);
         if(maximum_size && total_size > maximum_size){
-            printf("ERROR: Can't write %u bytes to EEPROM, it's only %u bytes long.", total_size, EEPROM.length());
+            communication::printf(F("ERROR: Can't write %u bytes to EEPROM, it's only %u bytes long."), total_size, EEPROM.length());
             return;
         }
 
