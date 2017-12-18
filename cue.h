@@ -138,5 +138,54 @@ namespace iris{
                 return true;
             }
     };
+
+    //Storage for cues
+    namespace Cues{
+        namespace{
+            //Storage for all cues currently loaded
+            std::vector<Cue> loaded_cues;
+        }
+
+        //Return const iterator to begin of Cue storage
+        static std::vector<Cue>::const_iterator begin(){
+            return loaded_cues.begin();
+        }
+
+        //Return const iterator to end of Cue storage
+        static std::vector<Cue>::const_iterator end(){
+            return loaded_cues.end();
+        }
+
+        //Load a cue
+        static void push(const Cue& cue){
+            loaded_cues.push_back(cue);
+        }
+
+        //Unload all cues
+        static void clear(){
+            loaded_cues.clear();
+        }
+
+        //Return reference to cue with ID cue_id
+        static Cue& get(size_t cue_id){
+            return loaded_cues[cue_id];
+        }
+
+        //Return number of loaded cues
+        static size_t count(){
+            return loaded_cues.size();
+        }
+
+        //Calculate size of actual information stored for schedules
+        static size_t size_in_bytes(){
+            return loaded_cues.size() *
+                    sizeof(decltype(loaded_cues)::value_type);
+        }
+
+        //Calculate overhead in bytes of schedules when stored in memory
+        static size_t memory_overhead(){
+            return sizeof(loaded_cues);
+        }
+    }
 }
 }

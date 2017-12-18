@@ -201,9 +201,9 @@ namespace led_ring{
 
     //Write a single line of cue to displayed_frame for the current timestep
     void draw_cue(size_t cue_id, uint32_t time, uint8_t draw_disabled_channels = true){
-        if(cue_id >= storage::number_of_cues()) return;
+        if(cue_id >= Cues::count()) return;
 
-        auto cue = storage::get_cue(cue_id);
+        auto cue = Cues::get(cue_id);
 
         for(uint8_t channel = 0; channel < NUM_CHANNELS; channel++){
             //Only get non-black color if current channel is active

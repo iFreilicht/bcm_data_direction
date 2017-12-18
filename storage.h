@@ -15,34 +15,9 @@
 namespace freilite{
 namespace iris{
 namespace storage{
-    namespace{
-        //Storage for all cues currently loaded
-        std::vector<Cue> loaded_cues;
-    }
-
-    //Load a cue
-    void push_cue(const Cue& cue){
-        loaded_cues.push_back(cue);
-    }
-
-    //Unload all cues
-    void clear_cues(){
-        loaded_cues.clear();
-    }
-
-    //Return reference to cue with ID cue_id
-    Cue& get_cue(size_t cue_id){
-        return loaded_cues[cue_id];
-    }
-
-    //Return number of loaded cues
-    size_t number_of_cues(){
-        return loaded_cues.size();
-    }
-
     //Calculate size of actual information stored for cues and schedules
     size_t size_in_bytes(){
-        return loaded_cues.size() * sizeof(loaded_cues[0]) + Schedules::size_in_bytes();
+        return Cues::size_in_bytes() + Schedules::size_in_bytes();
     }
 
     //Additional info stored in EEPROM
@@ -63,7 +38,7 @@ namespace storage{
             return;
         }
 
-        header_t header = { loaded_cues.size(), Schedules::count() };
+        header_t header = { Cues::count(), Schedules::count() };
 
         //Iterator for the whole range
         iteratorT store_iter = begin;
@@ -76,9 +51,9 @@ namespace storage{
         }
 
         //Write cues to range
-        const uint8_t* cues_byte_iter = static_cast<const uint8_t*>(static_cast<void*>(&*loaded_cues.begin()));
+        const uint8_t* cues_byte_iter = static_cast<const uint8_t*>(static_cast<const void*>(&*Cues::begin()));
 
-        for(int store_byte = 0; store_byte < sizeof(Cue) * loaded_cues.size(); ++store_byte, ++store_iter, ++cues_byte_iter){
+        for(int store_byte = 0; store_byte < sizeof(Cue) * Cues::count(); ++store_byte, ++store_iter, ++cues_byte_iter){
             *store_iter = *cues_byte_iter;
         }
 
@@ -98,7 +73,7 @@ namespace storage{
     //Load all cues and schedules from binary data between two input-iterators
     template<typename iteratorT>
     void load_all(iteratorT begin, iteratorT end){
-        clear_cues();
+        Cues::clear();
         Schedules::clear();
 
         //Iterator for the whole range
@@ -122,7 +97,7 @@ namespace storage{
                 static_cast<uint8_t*>(static_cast<void*>(&cue))[cue_byte] = *store_iter;
             }
 
-            push_cue(cue);
+            Cues::push(cue);
         }
 
         //Write schedules to range
