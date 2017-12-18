@@ -146,14 +146,14 @@ namespace communication{
 
     void handle_download_configuration(){
         // Send cues
-        size_t num_cues = storage::number_of_cues();
-        for(int i = 0; i < num_cues; ++i){
-            send_message(storage::get_cue(i).as_pb_cue());
-            if(!next_requested()){
-                printf("Did not receive RequestNext.");
-                return;
-            }
-        }
+        //size_t num_cues = storage::number_of_cues();
+        //for(int i = 0; i < num_cues; ++i){
+        //    send_message(storage::get_cue(i).as_pb_cue());
+        //    if(!next_requested()){
+        //        printf(F("Did not receive RequestNext."));
+        //        return;
+        //    }
+        //}
 
         // Send schedules
         size_t num_schedules = Schedules::count();
